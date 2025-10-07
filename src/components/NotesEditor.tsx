@@ -1,5 +1,3 @@
-import { useRef } from 'react';
-import { Editor } from '@tinymce/tinymce-react';
 import { Download, Copy, Check } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
@@ -12,38 +10,58 @@ interface NotesEditorProps {
 }
 
 export const NotesEditor = ({ content, onContentChange }: NotesEditorProps) => {
-  const editorRef = useRef<any>(null);
   const [copied, setCopied] = useState(false);
   const { toast } = useToast();
 
   const handleCopy = () => {
-    if (editorRef.current) {
-      const htmlContent = editorRef.current.getContent();
-      navigator.clipboard.writeText(htmlContent);
-      setCopied(true);
-      toast({
-        title: 'Copied!',
-        description: 'Notes copied to clipboard'
-      });
-      setTimeout(() => setCopied(false), 2000);
-    }
+    navigator.clipboard.writeText(content);
+    setCopied(true);
+    toast({
+      title: 'Copied!',
+      description: 'Notes copied to clipboard'
+    });
+    setTimeout(() => setCopied(false), 2000);
   };
 
   const handleDownload = () => {
-    if (editorRef.current) {
-      const htmlContent = editorRef.current.getContent();
-      const blob = new Blob([htmlContent], { type: 'text/html' });
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = 'medical-notes.html';
-      a.click();
-      URL.revokeObjectURL(url);
-      toast({
-        title: 'Downloaded!',
-        description: 'Notes saved as HTML file'
-      });
+    const fullHtml = `
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>Medical Notes</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      line-height: 1.8;
+      max-width: 900px;
+      margin: 40px auto;
+      padding: 20px;
+      color: #333;
     }
+    h1 { color: #2563eb; margin-top: 30px; margin-bottom: 15px; }
+    h2 { color: #3b82f6; margin-top: 25px; margin-bottom: 12px; }
+    h3 { color: #60a5fa; margin-top: 20px; margin-bottom: 10px; }
+    ul { margin-left: 20px; margin-bottom: 15px; }
+    li { margin-bottom: 8px; }
+    strong { color: #1e40af; font-weight: 600; }
+  </style>
+</head>
+<body>
+${content}
+</body>
+</html>`;
+    const blob = new Blob([fullHtml], { type: 'text/html' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'medical-notes.html';
+    a.click();
+    URL.revokeObjectURL(url);
+    toast({
+      title: 'Downloaded!',
+      description: 'Notes saved as HTML file'
+    });
   };
 
   return (
@@ -77,28 +95,14 @@ export const NotesEditor = ({ content, onContentChange }: NotesEditorProps) => {
           </div>
         </div>
       </div>
-      <div className="p-4">
-        <Editor
-          apiKey="cg09wsf15duw9av3kj5g8d8fvsxvv3uver3a95xyfm1ngtq4"
-          onInit={(evt, editor) => (editorRef.current = editor)}
-          value={content}
-          onEditorChange={onContentChange}
-          init={{
-            height: 600,
-            menubar: true,
-            plugins: [
-              'advlist', 'autolink', 'lists', 'link', 'image', 'charmap',
-              'anchor', 'searchreplace', 'visualblocks', 'code', 'fullscreen',
-              'insertdatetime', 'media', 'table', 'preview', 'help', 'wordcount'
-            ],
-            toolbar: 'undo redo | blocks | ' +
-              'bold italic forecolor | alignleft aligncenter ' +
-              'alignright alignjustify | bullist numlist outdent indent | ' +
-              'removeformat | help',
-            content_style: 'body { font-family:Helvetica,Arial,sans-serif; font-size:14px }'
-          }}
-        />
-      </div>
+      <div 
+        className="p-6 prose prose-blue max-w-none overflow-y-auto"
+        style={{ 
+          height: '600px',
+          lineHeight: '1.8'
+        }}
+        dangerouslySetInnerHTML={{ __html: content }}
+      />
     </Card>
   );
 };
