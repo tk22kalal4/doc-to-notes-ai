@@ -34,13 +34,23 @@ export const NoteGenerator = ({ ocrTexts, onNotesGenerated, onProgress }: NoteGe
           ? `IMPORTANT - CONTEXT FROM PREVIOUS PAGE:
 ${previousPageSummary}
 
-INSTRUCTIONS FOR CONTINUATION:
-- DO NOT create a new main heading (H1) if this content continues from the previous page's topic
-- Continue with the same topic structure from previous page
-- If content is related to previous page's last section, continue it as sub-headings (H2/H3)
-- Only create new H1 if this is clearly a completely new major topic
-- Maintain consistent formatting and hierarchy with previous page
-- Example: If previous page ended with "Diagnosis of MI" and current page has "treatments", make "Treatment" a H2 or H3 under MI, NOT a new H1
+SMART CONTINUATION INSTRUCTIONS:
+1. If previous page ENDED WITH BULLET POINTS and current text continues those points:
+   → Continue with <ul><li> bullets at the same nesting level
+   
+2. If previous page ENDED WITH H3 SUBSECTION and current text is related:
+   → Continue under that H3 or add another H3 at same level (NOT H1 or H2)
+   
+3. If previous page ENDED WITH H2 SUBTOPIC and current text is related:
+   → Continue under that H2 or add H3 subsections (NOT new H1)
+   
+4. If previous page ENDED WITH H1 MAIN TOPIC and current text is related:
+   → Add H2 subtopics or continue content (NOT new H1)
+   
+5. ONLY create new H1 if:
+   → Current text is a completely NEW major topic unrelated to previous content
+   
+GOLDEN RULE: Match the ending structure type - bullets continue as bullets, headings continue at appropriate level!
 
 ` 
           : 'This is the first page - start with appropriate heading structure.';
@@ -128,16 +138,55 @@ Convert this OCR text into beautifully formatted medical notes with visual separ
         
         allNotes += pageNotes + '\n\n';
         
-        // Extract meaningful context for next page
-        // Find the last H1, H2, or H3 heading and last few lines of content
-        const headingMatch = pageNotes.match(/<h[1-3]>([^<]+)<\/h[1-3]>/g);
-        const lastHeading = headingMatch ? headingMatch[headingMatch.length - 1] : '';
-        const lastContent = pageNotes.slice(-600).replace(/<[^>]+>/g, ' ').trim();
+        // Detect what the previous page ended with for better continuation
+        const lastSection = pageNotes.slice(-800);
         
-        previousPageSummary = `Last topic/heading: ${lastHeading}
-Last content discussed: ${lastContent.slice(-300)}
+        // Check if ended with H1, H2, or H3
+        const h1Match = lastSection.match(/<h1>([^<]+)<\/h1>/g);
+        const h2Match = lastSection.match(/<h2>([^<]+)<\/h2>/g);
+        const h3Match = lastSection.match(/<h3>([^<]+)<\/h3>/g);
+        const lastH1 = h1Match ? h1Match[h1Match.length - 1] : '';
+        const lastH2 = h2Match ? h2Match[h2Match.length - 1] : '';
+        const lastH3 = h3Match ? h3Match[h3Match.length - 1] : '';
+        
+        // Check if ended with bullet points
+        const endsWithBullets = /<\/ul>|<\/li>/.test(lastSection.slice(-100));
+        
+        // Check if ended with paragraph
+        const endsWithParagraph = /<\/p>/.test(lastSection.slice(-50));
+        
+        // Get text content for context
+        const textContent = lastSection.replace(/<[^>]+>/g, ' ').trim().slice(-300);
+        
+        let endingStructure = '';
+        if (endsWithBullets) {
+          endingStructure = 'ENDED WITH BULLET POINTS/LIST';
+        } else if (lastH3) {
+          endingStructure = `ENDED WITH H3 SUBSECTION: ${lastH3}`;
+        } else if (lastH2) {
+          endingStructure = `ENDED WITH H2 SUBTOPIC: ${lastH2}`;
+        } else if (lastH1) {
+          endingStructure = `ENDED WITH H1 MAIN TOPIC: ${lastH1}`;
+        } else if (endsWithParagraph) {
+          endingStructure = 'ENDED WITH PARAGRAPH';
+        }
+        
+        previousPageSummary = `PREVIOUS PAGE STRUCTURE:
+${endingStructure}
 
-Continue this topic structure in the next page if content is related.`;
+Current hierarchy:
+- Main topic (H1): ${lastH1 || 'None'}
+- Subtopic (H2): ${lastH2 || 'None'}  
+- Subsection (H3): ${lastH3 || 'None'}
+
+Last content: ${textContent}
+
+CONTINUATION RULES:
+- If next page content continues the same topic, DO NOT create new H1
+- If continuing bullet points, continue with <ul><li> at same level
+- If continuing subsection, continue under same H2/H3 hierarchy
+- If new major topic, then create new H1
+- Match the structure type (bullets continue as bullets, headings continue as headings)`;
 
         await new Promise(resolve => setTimeout(resolve, 1000));
       }
@@ -164,7 +213,7 @@ Continue this topic structure in the next page if content is related.`;
     if (ocrTexts.length > 0) {
       generateNotes();
     }
-  }, []); // Empty dependency array means this runs once on mount
+  }, []);
 
   return (
     <Card className="p-6 shadow-lg border-l-4 border-l-accent">
