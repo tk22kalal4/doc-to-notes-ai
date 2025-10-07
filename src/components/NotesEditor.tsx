@@ -87,7 +87,7 @@ export const NotesEditor = ({ content, onContentChange }: NotesEditorProps) => {
 
         <TabsContent value="preview" className="m-0 p-6">
           <div
-            className="prose prose-slate dark:prose-invert max-w-none"
+            className="notes-preview"
             dangerouslySetInnerHTML={{ __html: content }}
             data-testid="notes-preview"
           />
