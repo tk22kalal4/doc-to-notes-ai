@@ -4,6 +4,10 @@ import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Progress } from '@/components/ui/progress';
 import Tesseract from 'tesseract.js';
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
+import { useToast } from '@/hooks/use-toast';
+import { GlobalWorkerOptions, getDocument } from 'pdfjs-dist';
+import pdfWorker from 'pdfjs-dist/build/pdf.worker.min.mjs?url';
 
 interface OCRProcessorProps {
   file: File;
@@ -15,7 +19,8 @@ export const OCRProcessor = ({ file, pageRanges, onOCRComplete }: OCRProcessorPr
   const [isProcessing, setIsProcessing] = useState(false);
   const [progress, setProgress] = useState(0);
   const [currentPage, setCurrentPage] = useState(0);
-
+  const [error, setError] = useState<string | null>(null);
+  const { toast } = useToast();
   const parsePageRanges = (ranges: string): number[] => {
     const pages: number[] = [];
     const parts = ranges.split(',').map(p => p.trim());
@@ -36,31 +41,40 @@ export const OCRProcessor = ({ file, pageRanges, onOCRComplete }: OCRProcessorPr
 
   const processOCR = async () => {
     setIsProcessing(true);
+    setError(null);
     const pages = parsePageRanges(pageRanges);
     const extractedTexts: string[] = [];
 
     try {
-      const pdfjs = await import('pdfjs-dist');
-      
-      // Configure PDF.js worker
-      pdfjs.GlobalWorkerOptions.workerSrc = `//unpkg.com/pdfjs-dist@${pdfjs.version}/build/pdf.worker.min.mjs`;
-      
+      console.log('[OCR] Starting OCR', { pages, fileName: file.name, fileSize: file.size });
+      // Ensure worker is set at runtime as well
+      GlobalWorkerOptions.workerSrc = pdfWorker;
+
       const arrayBuffer = await file.arrayBuffer();
-      const pdf = await pdfjs.getDocument({ data: arrayBuffer }).promise;
+      console.log('[OCR] PDF arrayBuffer length', arrayBuffer.byteLength);
+
+      const loadingTask = getDocument({ data: arrayBuffer });
+      const pdf = await loadingTask.promise;
+      console.log('[OCR] PDF loaded with pages', pdf.numPages);
 
       for (let i = 0; i < pages.length; i++) {
         const pageNum = pages[i];
         setCurrentPage(pageNum);
+        console.log(`[OCR] Rendering page ${pageNum}`);
         
         const page = await pdf.getPage(pageNum);
         const viewport = page.getViewport({ scale: 2.0 });
         
         const canvas = document.createElement('canvas');
-        const context = canvas.getContext('2d')!;
+        const context = canvas.getContext('2d');
+        if (!context) {
+          throw new Error('Canvas context not available');
+        }
         canvas.width = viewport.width;
         canvas.height = viewport.height;
 
         await page.render({ canvasContext: context, viewport, canvas }).promise;
+        console.log(`[OCR] Page ${pageNum} rendered to canvas ${canvas.width}x${canvas.height}`);
         
         const imageData = canvas.toDataURL('image/png');
         
@@ -74,12 +88,26 @@ export const OCRProcessor = ({ file, pageRanges, onOCRComplete }: OCRProcessorPr
           }
         });
         
+        console.log(`[OCR] Page ${pageNum} OCR length:`, text.length);
         extractedTexts.push(text);
+
+        // Cleanup canvas
+        canvas.width = 0;
+        canvas.height = 0;
       }
 
       onOCRComplete(extractedTexts);
+      console.log('[OCR] Completed successfully');
+      toast({ title: 'OCR complete', description: `Processed ${extractedTexts.length} page(s).` });
     } catch (error) {
       console.error('OCR Error:', error);
+      const message = error instanceof Error ? error.message : 'Unknown error';
+      setError(message);
+      toast({
+        variant: 'destructive',
+        title: 'OCR failed',
+        description: message,
+      });
     } finally {
       setIsProcessing(false);
       setProgress(0);
@@ -109,6 +137,13 @@ export const OCRProcessor = ({ file, pageRanges, onOCRComplete }: OCRProcessorPr
             </div>
             <Progress value={progress} className="h-2" />
           </div>
+        )}
+
+        {error && (
+          <Alert variant="destructive">
+            <AlertTitle>OCR error</AlertTitle>
+            <AlertDescription>{error}</AlertDescription>
+          </Alert>
         )}
 
         <Button
