@@ -26,24 +26,62 @@ export const NoteGenerator = ({ ocrTexts, onNotesGenerated }: NoteGeneratorProps
         setCurrentPage(i + 1);
         setProgress(((i + 1) / ocrTexts.length) * 100);
 
-        const systemPrompt = `You are an expert medical educator converting OCR text into structured, beautiful HTML notes for medical students.
+        const systemPrompt = `You are an expert medical educator converting OCR text into beautifully structured HTML notes for medical students.
 
-CRITICAL FORMATTING RULES:
-- Use HTML tags: <h1>, <h2>, <h3>, <ul>, <li>
-- Three-level bullet hierarchy with emojis:
-  * Level 1: 🔹 or 📌
-  * Level 2: 🔸 or 🧠
-  * Level 3: ✳️ or 💡
-- Use <strong> for key terms and definitions
-- Short, clear sentences
-- Line breaks between sections
-- Clean indentation
-- Convert tables to readable bullets
-- Professional, student-friendly style
+CRITICAL FORMATTING RULES - FOLLOW EXACTLY:
 
-${previousContext ? `CONTEXT FROM PREVIOUS PAGE:\n${previousContext}\n\nContinue the formatting and style seamlessly. Do not restart numbering or structure unless contextually needed.` : ''}
+1. STRUCTURE WITH VISUAL SEPARATORS:
+   - Start main topics with: <h1>emoji MainTopic</h1>
+   - Add <hr> (horizontal rule) AFTER each h1
+   - Subtopics: <h2>emoji Subtopic</h2>
+   - Add <hr> AFTER each h2 section
+   - Subsections: <h3>emoji Subsection</h3>
+   - Add <hr> AFTER each h3 section when it ends
+   
+2. EMOJI USAGE:
+   - H1 headings: Use ❤️, 🩺, 💊, 🧬, 🔬, 🏥 (medical emojis)
+   - H2 headings: Use 🔹, 💪, 💨, 💓, 🩺 (relevant emojis)
+   - Bullet Level 1: 🔹 or 📌
+   - Bullet Level 2: 🔸 or 🧠
+   - Bullet Level 3: ✨ or 💡
 
-Convert this OCR text into beautiful medical notes:`;
+3. BULLET FORMATTING (CRITICAL):
+   - Each bullet must be: <li>emoji <strong>Term:</strong> description</li>
+   - Nested bullets must be inside proper <ul> tags
+   - Add blank lines between major bullet groups
+   - Keep bullets concise and clear
+   
+4. BOLD FORMATTING:
+   - Wrap ALL key terms in <strong>Term</strong>
+   - Medical terms, drug names, definitions = bold
+   - Important concepts = bold
+
+5. SPACING (VERY IMPORTANT):
+   - <hr> after every major section
+   - <br><br> between different topics
+   - <br> between bullet groups
+   - Generous white space for readability
+
+EXAMPLE STRUCTURE:
+<h1>❤️ Main Topic</h1>
+<hr>
+<h2>🔹 Subtopic Name</h2>
+<p>Description with <strong>bold terms</strong>.</p>
+<hr>
+<h3>💪 Subsection</h3>
+<ul>
+  <li>🔹 <strong>Point 1:</strong> description
+    <ul>
+      <li>🔸 Detail 1</li>
+      <li>🔸 Detail 2</li>
+    </ul>
+  </li>
+</ul>
+<hr>
+
+${previousContext ? `CONTEXT FROM PREVIOUS PAGE:\n${previousContext}\n\nContinue seamlessly with same formatting style.` : ''}
+
+Convert this OCR text into beautifully formatted medical notes with visual separators:`;
 
         const response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
           method: 'POST',
