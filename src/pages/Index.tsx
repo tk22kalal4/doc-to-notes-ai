@@ -3,6 +3,7 @@ import { FileText, Upload, Scissors, ScanText, Sparkles, X, Download } from 'luc
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { Progress } from '@/components/ui/progress';
 import { PDFViewer } from '@/components/PDFViewer';
 import { OCRProcessor } from '@/components/OCRProcessor';
 import { NoteGenerator } from '@/components/NoteGenerator';
@@ -18,6 +19,10 @@ const Index = () => {
   const [isGeneratingNotes, setIsGeneratingNotes] = useState(false);
   const [generatedNotes, setGeneratedNotes] = useState('');
   const [showNotes, setShowNotes] = useState(false);
+  const [ocrProgress, setOcrProgress] = useState(0);
+  const [ocrCurrentPage, setOcrCurrentPage] = useState(0);
+  const [notesProgress, setNotesProgress] = useState(0);
+  const [notesCurrentPage, setNotesCurrentPage] = useState(0);
 
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -30,20 +35,58 @@ const Index = () => {
     }
   };
 
+  const validatePageRanges = (ranges: string): boolean => {
+    if (!ranges.trim()) return false;
+    
+    // Valid formats: "1-3", "4-9", "1,2,3", "1-3,5,7-9"
+    const rangePattern = /^(\d+(-\d+)?)(,\s*\d+(-\d+)?)*$/;
+    if (!rangePattern.test(ranges.trim())) return false;
+    
+    // Validate page numbers are within bounds
+    const parts = ranges.split(',').map(p => p.trim());
+    for (const part of parts) {
+      if (part.includes('-')) {
+        const [start, end] = part.split('-').map(Number);
+        if (start < 1 || end > totalPages || start > end) return false;
+      } else {
+        const pageNum = Number(part);
+        if (pageNum < 1 || pageNum > totalPages) return false;
+      }
+    }
+    return true;
+  };
+
   const handleSplitSubmit = () => {
-    if (pageRanges.trim()) {
+    if (validatePageRanges(pageRanges)) {
       setShowSplitInput(false);
+    } else {
+      alert(`Invalid page range! Please use format like "1-3" or "1,2,3" or "1-3,5-7"\nTotal pages: ${totalPages}`);
     }
   };
 
   const handleOCRComplete = (texts: string[]) => {
     setOcrTexts(texts);
     setIsOCRProcessing(false);
+    setOcrProgress(0);
+    setOcrCurrentPage(0);
+  };
+
+  const handleOCRProgress = (progress: number, currentPage: number) => {
+    setOcrProgress(progress);
+    setOcrCurrentPage(currentPage);
   };
 
   const handleNotesGenerated = (notes: string) => {
     setGeneratedNotes(notes);
     setShowNotes(true);
+    setIsGeneratingNotes(false);
+    setNotesProgress(0);
+    setNotesCurrentPage(0);
+  };
+
+  const handleNotesProgress = (progress: number, currentPage: number) => {
+    setNotesProgress(progress);
+    setNotesCurrentPage(currentPage);
   };
 
   const resetApp = () => {
@@ -186,8 +229,8 @@ const Index = () => {
                     </div>
                   )}
 
-                  {/* OCR Button */}
-                  {pageRanges && ocrTexts.length === 0 && (
+                  {/* OCR Button or Progress */}
+                  {pageRanges && ocrTexts.length === 0 && !isOCRProcessing && (
                     <Button
                       size="sm"
                       variant="outline"
@@ -197,11 +240,24 @@ const Index = () => {
                       data-testid="button-start-ocr"
                     >
                       <ScanText className="h-4 w-4" />
-                      <span className="hidden sm:inline">
-                        {isOCRProcessing ? 'Processing...' : 'Extract Text'}
-                      </span>
+                      <span className="hidden sm:inline">Extract Text</span>
                       <span className="sm:hidden">OCR</span>
                     </Button>
+                  )}
+
+                  {/* OCR Progress */}
+                  {isOCRProcessing && (
+                    <div className="flex items-center gap-2 flex-1 max-w-md" data-testid="ocr-progress-container">
+                      <div className="flex-1 space-y-1">
+                        <div className="flex justify-between text-xs">
+                          <span className="text-muted-foreground">
+                            Processing page {ocrCurrentPage}...
+                          </span>
+                          <span className="font-medium text-primary">{Math.round(ocrProgress)}%</span>
+                        </div>
+                        <Progress value={ocrProgress} className="h-2" data-testid="progress-ocr" />
+                      </div>
+                    </div>
                   )}
 
                   {/* Hidden OCR Processor */}
@@ -211,12 +267,13 @@ const Index = () => {
                         file={pdfFile}
                         pageRanges={pageRanges}
                         onOCRComplete={handleOCRComplete}
+                        onProgress={handleOCRProgress}
                       />
                     </div>
                   )}
 
-                  {/* Generate Notes Button */}
-                  {ocrTexts.length > 0 && (
+                  {/* Generate Notes Button or Progress */}
+                  {ocrTexts.length > 0 && !isGeneratingNotes && !generatedNotes && (
                     <Button
                       size="sm"
                       className="gap-2"
@@ -225,11 +282,24 @@ const Index = () => {
                       data-testid="button-trigger-generate"
                     >
                       <Sparkles className="h-4 w-4" />
-                      <span className="hidden sm:inline">
-                        {isGeneratingNotes ? 'Generating...' : 'Generate Notes'}
-                      </span>
+                      <span className="hidden sm:inline">Generate Notes</span>
                       <span className="sm:hidden">Generate</span>
                     </Button>
+                  )}
+
+                  {/* Notes Generation Progress */}
+                  {isGeneratingNotes && (
+                    <div className="flex items-center gap-2 flex-1 max-w-md" data-testid="notes-progress-container">
+                      <div className="flex-1 space-y-1">
+                        <div className="flex justify-between text-xs">
+                          <span className="text-muted-foreground">
+                            Generating page {notesCurrentPage} of {ocrTexts.length}...
+                          </span>
+                          <span className="font-medium text-accent">{Math.round(notesProgress)}%</span>
+                        </div>
+                        <Progress value={notesProgress} className="h-2" data-testid="progress-notes" />
+                      </div>
+                    </div>
                   )}
 
                   {/* Hidden Note Generator */}
@@ -238,6 +308,7 @@ const Index = () => {
                       <NoteGenerator
                         ocrTexts={ocrTexts}
                         onNotesGenerated={handleNotesGenerated}
+                        onProgress={handleNotesProgress}
                       />
                     </div>
                   )}
