@@ -49,7 +49,7 @@ Convert this OCR text into beautiful medical notes:`;
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
-            'Authorization': 'Bearer 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'
+            'Authorization': 'Bearer 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'
           },
           body: JSON.stringify({
             model: 'meta-llama/llama-4-scout-17b-16e-instruct',
