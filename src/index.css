@@ -113,3 +113,112 @@ All colors MUST be HSL.
     @apply bg-background text-foreground;
   }
 }
+
+/* Custom styles for medical notes HTML preview */
+.notes-preview {
+  line-height: 1.8;
+  color: hsl(var(--foreground));
+}
+
+.notes-preview h1 {
+  font-size: 1.875rem;
+  font-weight: 700;
+  margin-top: 2rem;
+  margin-bottom: 1rem;
+  color: hsl(var(--primary));
+  line-height: 1.3;
+}
+
+.notes-preview h2 {
+  font-size: 1.5rem;
+  font-weight: 600;
+  margin-top: 1.5rem;
+  margin-bottom: 0.75rem;
+  color: hsl(var(--accent));
+  line-height: 1.4;
+}
+
+.notes-preview h3 {
+  font-size: 1.25rem;
+  font-weight: 600;
+  margin-top: 1.25rem;
+  margin-bottom: 0.5rem;
+  color: hsl(var(--foreground));
+  line-height: 1.4;
+}
+
+.notes-preview ul {
+  margin-top: 0.75rem;
+  margin-bottom: 0.75rem;
+  padding-left: 1.5rem;
+  list-style-type: none;
+}
+
+.notes-preview ul ul {
+  margin-top: 0.5rem;
+  margin-bottom: 0.5rem;
+  padding-left: 2rem;
+}
+
+.notes-preview ul ul ul {
+  margin-top: 0.25rem;
+  margin-bottom: 0.25rem;
+  padding-left: 2rem;
+}
+
+.notes-preview li {
+  margin-bottom: 0.5rem;
+  line-height: 1.8;
+}
+
+.notes-preview strong {
+  font-weight: 600;
+  color: hsl(var(--foreground));
+}
+
+.notes-preview br {
+  display: block;
+  content: "";
+  margin-top: 0.5rem;
+}
+
+.notes-preview p {
+  margin-top: 0.75rem;
+  margin-bottom: 0.75rem;
+  line-height: 1.8;
+}
+
+.notes-preview table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-top: 1rem;
+  margin-bottom: 1rem;
+}
+
+.notes-preview table th,
+.notes-preview table td {
+  border: 1px solid hsl(var(--border));
+  padding: 0.5rem;
+  text-align: left;
+}
+
+.notes-preview table th {
+  background-color: hsl(var(--muted));
+  font-weight: 600;
+}
+
+.notes-preview hr {
+  margin-top: 1.5rem;
+  margin-bottom: 1.5rem;
+  border: 0;
+  border-top: 2px solid hsl(var(--border));
+  opacity: 0.3;
+}
+
+.notes-preview h1,
+.notes-preview h2,
+.notes-preview h3 {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
