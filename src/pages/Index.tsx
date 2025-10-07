@@ -13,6 +13,7 @@ const Index = () => {
   const [pdfFile, setPdfFile] = useState<File | null>(null);
   const [totalPages, setTotalPages] = useState(0);
   const [pageRanges, setPageRanges] = useState('');
+  const [tempPageRanges, setTempPageRanges] = useState('');
   const [showSplitInput, setShowSplitInput] = useState(false);
   const [isOCRProcessing, setIsOCRProcessing] = useState(false);
   const [ocrTexts, setOcrTexts] = useState<string[]>([]);
@@ -57,7 +58,8 @@ const Index = () => {
   };
 
   const handleSplitSubmit = () => {
-    if (validatePageRanges(pageRanges)) {
+    if (validatePageRanges(tempPageRanges)) {
+      setPageRanges(tempPageRanges);
       setShowSplitInput(false);
     } else {
       alert(`Invalid page range! Please use format like "1-3" or "1,2,3" or "1-3,5-7"\nTotal pages: ${totalPages}`);
@@ -208,15 +210,18 @@ const Index = () => {
                     <div className="flex items-center gap-2 flex-1 max-w-md">
                       <Input
                         placeholder="e.g., 1-5,7,10-12"
-                        value={pageRanges}
-                        onChange={(e) => setPageRanges(e.target.value)}
+                        value={tempPageRanges}
+                        onChange={(e) => setTempPageRanges(e.target.value)}
                         className="h-9 text-sm"
                         data-testid="input-page-ranges"
                       />
                       <Button size="sm" onClick={handleSplitSubmit} data-testid="button-split-submit">
                         Apply
                       </Button>
-                      <Button size="sm" variant="ghost" onClick={() => setShowSplitInput(false)}>
+                      <Button size="sm" variant="ghost" onClick={() => {
+                        setShowSplitInput(false);
+                        setTempPageRanges('');
+                      }}>
                         <X className="h-4 w-4" />
                       </Button>
                     </div>
