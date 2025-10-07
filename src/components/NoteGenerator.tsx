@@ -20,7 +20,7 @@ export const NoteGenerator = ({ ocrTexts, onNotesGenerated, onProgress }: NoteGe
   const generateNotes = async () => {
     setIsGenerating(true);
     let allNotes = '';
-    let previousContext = '';
+    let previousPageSummary = '';
 
     try {
       for (let i = 0; i < ocrTexts.length; i++) {
@@ -29,6 +29,21 @@ export const NoteGenerator = ({ ocrTexts, onNotesGenerated, onProgress }: NoteGe
         setCurrentPage(page);
         setProgress(progressValue);
         onProgress?.(progressValue, page);
+
+        const contextPrompt = previousPageSummary 
+          ? `IMPORTANT - CONTEXT FROM PREVIOUS PAGE:
+${previousPageSummary}
+
+INSTRUCTIONS FOR CONTINUATION:
+- DO NOT create a new main heading (H1) if this content continues from the previous page's topic
+- Continue with the same topic structure from previous page
+- If content is related to previous page's last section, continue it as sub-headings (H2/H3)
+- Only create new H1 if this is clearly a completely new major topic
+- Maintain consistent formatting and hierarchy with previous page
+- Example: If previous page ended with "Diagnosis of MI" and current page has "treatments", make "Treatment" a H2 or H3 under MI, NOT a new H1
+
+` 
+          : 'This is the first page - start with appropriate heading structure.';
 
         const systemPrompt = `You are an expert medical educator converting OCR text into beautifully structured HTML notes for medical students.
 
@@ -83,7 +98,7 @@ EXAMPLE STRUCTURE:
 </ul>
 <hr>
 
-${previousContext ? `CONTEXT FROM PREVIOUS PAGE:\n${previousContext}\n\nContinue seamlessly with same formatting style.` : ''}
+${contextPrompt}
 
 Convert this OCR text into beautifully formatted medical notes with visual separators:`;
 
@@ -112,7 +127,17 @@ Convert this OCR text into beautifully formatted medical notes with visual separ
         const pageNotes = data.choices[0].message.content;
         
         allNotes += pageNotes + '\n\n';
-        previousContext = pageNotes.slice(-500);
+        
+        // Extract meaningful context for next page
+        // Find the last H1, H2, or H3 heading and last few lines of content
+        const headingMatch = pageNotes.match(/<h[1-3]>([^<]+)<\/h[1-3]>/g);
+        const lastHeading = headingMatch ? headingMatch[headingMatch.length - 1] : '';
+        const lastContent = pageNotes.slice(-600).replace(/<[^>]+>/g, ' ').trim();
+        
+        previousPageSummary = `Last topic/heading: ${lastHeading}
+Last content discussed: ${lastContent.slice(-300)}
+
+Continue this topic structure in the next page if content is related.`;
 
         await new Promise(resolve => setTimeout(resolve, 1000));
       }
@@ -136,8 +161,10 @@ Convert this OCR text into beautifully formatted medical notes with visual separ
   };
 
   useEffect(() => {
-    generateNotes();
-  }, []);
+    if (ocrTexts.length > 0) {
+      generateNotes();
+    }
+  }, []); // Empty dependency array means this runs once on mount
 
   return (
     <Card className="p-6 shadow-lg border-l-4 border-l-accent">
