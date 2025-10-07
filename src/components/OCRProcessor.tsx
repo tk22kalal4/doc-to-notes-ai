@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Scan, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
@@ -13,14 +13,16 @@ interface OCRProcessorProps {
   file: File;
   pageRanges: string;
   onOCRComplete: (text: string[]) => void;
+  onProgress?: (progress: number, currentPage: number) => void;
 }
 
-export const OCRProcessor = ({ file, pageRanges, onOCRComplete }: OCRProcessorProps) => {
+export const OCRProcessor = ({ file, pageRanges, onOCRComplete, onProgress }: OCRProcessorProps) => {
   const [isProcessing, setIsProcessing] = useState(false);
   const [progress, setProgress] = useState(0);
   const [currentPage, setCurrentPage] = useState(0);
   const [error, setError] = useState<string | null>(null);
   const { toast } = useToast();
+  
   const parsePageRanges = (ranges: string): number[] => {
     const pages: number[] = [];
     const parts = ranges.split(',').map(p => p.trim());
@@ -60,6 +62,7 @@ export const OCRProcessor = ({ file, pageRanges, onOCRComplete }: OCRProcessorPr
       for (let i = 0; i < pages.length; i++) {
         const pageNum = pages[i];
         setCurrentPage(pageNum);
+        onProgress?.(((i / pages.length) * 100), pageNum);
         console.log(`[OCR] Rendering page ${pageNum}`);
         
         const page = await pdf.getPage(pageNum);
@@ -83,7 +86,9 @@ export const OCRProcessor = ({ file, pageRanges, onOCRComplete }: OCRProcessorPr
             if (m.status === 'recognizing text') {
               const pageProgress = (i / pages.length) * 100;
               const ocrProgress = m.progress * (100 / pages.length);
-              setProgress(pageProgress + ocrProgress);
+              const totalProgress = pageProgress + ocrProgress;
+              setProgress(totalProgress);
+              onProgress?.(totalProgress, pageNum);
             }
           }
         });
@@ -113,6 +118,10 @@ export const OCRProcessor = ({ file, pageRanges, onOCRComplete }: OCRProcessorPr
       setProgress(0);
     }
   };
+
+  useEffect(() => {
+    processOCR();
+  }, []);
 
   return (
     <Card className="p-6 shadow-lg border-l-4 border-l-primary">
