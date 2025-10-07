@@ -41,6 +41,10 @@ export const OCRProcessor = ({ file, pageRanges, onOCRComplete }: OCRProcessorPr
 
     try {
       const pdfjs = await import('pdfjs-dist');
+      
+      // Configure PDF.js worker
+      pdfjs.GlobalWorkerOptions.workerSrc = `//unpkg.com/pdfjs-dist@${pdfjs.version}/build/pdf.worker.min.mjs`;
+      
       const arrayBuffer = await file.arrayBuffer();
       const pdf = await pdfjs.getDocument({ data: arrayBuffer }).promise;
 
