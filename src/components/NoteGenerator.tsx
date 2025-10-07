@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Sparkles, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
@@ -8,9 +8,10 @@ import { useToast } from '@/hooks/use-toast';
 interface NoteGeneratorProps {
   ocrTexts: string[];
   onNotesGenerated: (notes: string) => void;
+  onProgress?: (progress: number, currentPage: number) => void;
 }
 
-export const NoteGenerator = ({ ocrTexts, onNotesGenerated }: NoteGeneratorProps) => {
+export const NoteGenerator = ({ ocrTexts, onNotesGenerated, onProgress }: NoteGeneratorProps) => {
   const [isGenerating, setIsGenerating] = useState(false);
   const [progress, setProgress] = useState(0);
   const [currentPage, setCurrentPage] = useState(0);
@@ -23,8 +24,11 @@ export const NoteGenerator = ({ ocrTexts, onNotesGenerated }: NoteGeneratorProps
 
     try {
       for (let i = 0; i < ocrTexts.length; i++) {
-        setCurrentPage(i + 1);
-        setProgress(((i + 1) / ocrTexts.length) * 100);
+        const page = i + 1;
+        const progressValue = (page / ocrTexts.length) * 100;
+        setCurrentPage(page);
+        setProgress(progressValue);
+        onProgress?.(progressValue, page);
 
         const systemPrompt = `You are an expert medical educator converting OCR text into beautifully structured HTML notes for medical students.
 
@@ -130,6 +134,10 @@ Convert this OCR text into beautifully formatted medical notes with visual separ
       setProgress(0);
     }
   };
+
+  useEffect(() => {
+    generateNotes();
+  }, []);
 
   return (
     <Card className="p-6 shadow-lg border-l-4 border-l-accent">
