@@ -5,7 +5,7 @@ import { Card } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Textarea } from '@/components/ui/textarea';
 import { useToast } from '@/hooks/use-toast';
-import { saveAs } from 'file-saver';
+import html2pdf from 'html2pdf.js';
 
 interface NotesEditorProps {
   content: string;
@@ -17,11 +17,26 @@ export const NotesEditor = ({ content, onContentChange }: NotesEditorProps) => {
   const { toast } = useToast();
 
   const handleDownload = () => {
-    const blob = new Blob([content], { type: 'text/html;charset=utf-8' });
-    saveAs(blob, 'medical-notes.html');
-    toast({
-      title: 'Download Started',
-      description: 'Your notes are being downloaded as an HTML file.'
+    const element = document.createElement('div');
+    element.innerHTML = content;
+    element.style.padding = '20px';
+    element.style.fontFamily = 'Arial, sans-serif';
+    element.style.fontSize = '14px';
+    element.style.lineHeight = '1.6';
+    
+    const opt = {
+      margin: [10, 10, 10, 10] as [number, number, number, number],
+      filename: 'medical-notes.pdf',
+      image: { type: 'jpeg' as const, quality: 0.98 },
+      html2canvas: { scale: 2, useCORS: true, letterRendering: true },
+      jsPDF: { unit: 'mm' as const, format: 'a4' as const, orientation: 'portrait' as const }
+    };
+
+    html2pdf().set(opt).from(element).save().then(() => {
+      toast({
+        title: 'Download Complete',
+        description: 'Your notes have been downloaded as a PDF file.'
+      });
     });
   };
 
