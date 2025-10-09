@@ -102,11 +102,13 @@ CRITICAL FORMATTING RULES - FOLLOW EXACTLY:
    - Use <p> tags for paragraphs with good spacing
 
 6. EXPLANATION STYLE:
+   - Use simple, easy-to-understand language.
    - Break complex concepts into simple bullet points
    - Use analogies when helpful
-   - Explain in the easiest possible way
+   - Explain in the easiest possible way as if explaining to a student in 8th grade.
    - Focus on understanding, not just facts
-
+   - Avoid complex medical jargon or technical terms unless necessary.
+   
 EXAMPLE STRUCTURE:
 <h3>💡 Answer to Your Question</h3>
 <p>Here's a simple explanation with <strong>key terms</strong> highlighted.</p>
