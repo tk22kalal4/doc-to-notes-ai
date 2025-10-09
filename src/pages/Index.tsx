@@ -1,4 +1,3 @@
-
 import { useState } from 'react';
 import { FileText, Upload, Scissors, ScanText, Sparkles, X, Download } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -30,6 +29,42 @@ const Index = () => {
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file && file.type === 'application/pdf') {
+      const fileSizeMB = file.size / (1024 * 1024);
+      
+      // Warning for files larger than 50MB
+      if (fileSizeMB > 50) {
+        const confirmUpload = window.confirm(
+          `⚠️ Large File Warning\n\n` +
+          `File size: ${fileSizeMB.toFixed(2)} MB\n\n` +
+          `Large PDFs may:\n` +
+          `• Take longer to load\n` +
+          `• Use more memory\n` +
+          `• Slow down performance\n\n` +
+          `Recommended: Use smaller files or select specific page ranges.\n\n` +
+          `Do you want to continue?`
+        );
+        
+        if (!confirmUpload) {
+          e.target.value = '';
+          return;
+        }
+      }
+      
+      // Block files larger than 500MB to prevent crashes
+      if (fileSizeMB > 500) {
+        alert(
+          `❌ File Too Large\n\n` +
+          `File size: ${fileSizeMB.toFixed(2)} MB\n\n` +
+          `Maximum supported size: 500 MB\n\n` +
+          `Please:\n` +
+          `• Use a smaller PDF\n` +
+          `• Split the PDF into smaller parts\n` +
+          `• Compress the PDF file`
+        );
+        e.target.value = '';
+        return;
+      }
+      
       setPdfFile(file);
       setPageRanges('');
       setOcrTexts([]);
