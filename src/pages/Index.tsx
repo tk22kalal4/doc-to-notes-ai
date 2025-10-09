@@ -8,6 +8,7 @@ import { PDFViewer } from '@/components/PDFViewer';
 import { OCRProcessor } from '@/components/OCRProcessor';
 import { NoteGenerator } from '@/components/NoteGenerator';
 import { NotesEditor } from '@/components/NotesEditor';
+import { AIChatbot } from '@/components/AIChatbot';
 
 const Index = () => {
   const [pdfFile, setPdfFile] = useState<File | null>(null);
@@ -348,6 +349,11 @@ const Index = () => {
           </div>
         )}
       </main>
+
+      {/* AI Chatbot - Shows after notes are generated */}
+      {generatedNotes && ocrTexts.length > 0 && (
+        <AIChatbot ocrTexts={ocrTexts} />
+      )}
     </div>
   );
 };
