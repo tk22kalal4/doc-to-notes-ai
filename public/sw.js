@@ -1,8 +1,10 @@
-const CACHE_NAME = 'doc2notes-v1';
+const CACHE_NAME = 'doc2notes-v2';
 const urlsToCache = [
   '/',
   '/index.html',
-  '/manifest.json'
+  '/manifest.json',
+  '/icons-192.png',
+  '/icons-512.png'
 ];
 
 self.addEventListener('install', (event) => {
