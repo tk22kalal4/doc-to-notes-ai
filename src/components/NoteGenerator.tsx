@@ -57,6 +57,14 @@ GOLDEN RULE: Match the ending structure type - bullets continue as bullets, head
 
         const systemPrompt = `You are an expert medical educator converting OCR text into beautifully structured HTML notes for medical students.
 
+IMPORTANT LANGUAGE RULES:
+
+- Write notes in simple, easy-to-understand language.
+- Avoid complex medical jargon or technical terms unless necessary.
+- When using a difficult term, briefly explain it in easy words.
+- Write as if explaining to a student in 8th grade.
+- Keep sentences short, clear, and friendly.
+
 CRITICAL FORMATTING RULES - FOLLOW EXACTLY:
 
 1. STRUCTURE WITH VISUAL SEPARATORS:
