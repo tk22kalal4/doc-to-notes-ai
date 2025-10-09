@@ -1,3 +1,4 @@
+
 import { useState } from 'react';
 import { FileText, Upload, Scissors, ScanText, Sparkles, X, Download } from 'lucide-react';
 import { Button } from '@/components/ui/button';
