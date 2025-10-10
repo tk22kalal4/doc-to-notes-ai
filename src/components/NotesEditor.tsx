@@ -3,9 +3,10 @@ import { Download, Copy, Edit3, Eye } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Textarea } from '@/components/ui/textarea';
 import { useToast } from '@/hooks/use-toast';
 import html2pdf from 'html2pdf.js';
+import ReactQuill from 'react-quill';
+import 'react-quill/dist/quill.snow.css';
 
 interface NotesEditorProps {
   content: string;
@@ -151,6 +152,12 @@ export const NotesEditor = ({ content, onContentChange }: NotesEditorProps) => {
           background-color: #f3f4f6;
           font-weight: 600;
         }
+
+        img {
+          max-width: 100%;
+          height: auto;
+          margin: 1rem 0;
+        }
       </style>
     `;
     
@@ -188,6 +195,30 @@ export const NotesEditor = ({ content, onContentChange }: NotesEditorProps) => {
       });
     }
   };
+
+  // Rich text editor toolbar configuration
+  const modules = {
+    toolbar: [
+      [{ 'header': [1, 2, 3, 4, 5, 6, false] }],
+      [{ 'font': [] }],
+      [{ 'size': ['small', false, 'large', 'huge'] }],
+      ['bold', 'italic', 'underline', 'strike'],
+      [{ 'color': [] }, { 'background': [] }],
+      [{ 'list': 'ordered'}, { 'list': 'bullet' }],
+      [{ 'align': [] }],
+      ['link', 'image'],
+      ['clean']
+    ]
+  };
+
+  const formats = [
+    'header', 'font', 'size',
+    'bold', 'italic', 'underline', 'strike',
+    'color', 'background',
+    'list', 'bullet',
+    'align',
+    'link', 'image'
+  ];
 
   return (
     <Card className="h-full shadow-lg">
@@ -228,7 +259,7 @@ export const NotesEditor = ({ content, onContentChange }: NotesEditorProps) => {
             </TabsTrigger>
             <TabsTrigger value="edit" className="gap-2" data-testid="tab-edit">
               <Edit3 className="h-4 w-4" />
-              Edit
+              Editor
             </TabsTrigger>
           </TabsList>
         </div>
@@ -242,13 +273,17 @@ export const NotesEditor = ({ content, onContentChange }: NotesEditorProps) => {
         </TabsContent>
 
         <TabsContent value="edit" className="m-0 p-4">
-          <Textarea
-            value={content}
-            onChange={(e) => onContentChange(e.target.value)}
-            className="min-h-[600px] font-mono text-sm"
-            placeholder="Your generated notes will appear here..."
-            data-testid="textarea-notes-editor"
-          />
+          <div data-testid="rich-text-editor">
+            <ReactQuill
+              theme="snow"
+              value={content}
+              onChange={onContentChange}
+              modules={modules}
+              formats={formats}
+              className="min-h-[600px]"
+              placeholder="Your generated notes will appear here. Use the toolbar to format text, add images, and customize your notes..."
+            />
+          </div>
         </TabsContent>
       </Tabs>
     </Card>
