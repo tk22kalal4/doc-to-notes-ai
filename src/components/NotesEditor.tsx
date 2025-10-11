@@ -1,13 +1,12 @@
 
-import { useState } from 'react';
+import { useState, useRef } from 'react';
 import { Download, Copy, Edit3, Eye } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useToast } from '@/hooks/use-toast';
 import html2pdf from 'html2pdf.js';
-import ReactQuill from 'react-quill';
-import 'react-quill/dist/quill.snow.css';
+import { Editor } from '@tinymce/tinymce-react';
 
 interface NotesEditorProps {
   content: string;
@@ -17,6 +16,7 @@ interface NotesEditorProps {
 export const NotesEditor = ({ content, onContentChange }: NotesEditorProps) => {
   const [activeTab, setActiveTab] = useState<'preview' | 'edit'>('preview');
   const { toast } = useToast();
+  const editorRef = useRef<any>(null);
 
   const handleDownload = () => {
     const element = document.createElement('div');
@@ -197,29 +197,6 @@ export const NotesEditor = ({ content, onContentChange }: NotesEditorProps) => {
     }
   };
 
-  // Rich text editor toolbar configuration
-  const modules = {
-    toolbar: [
-      [{ 'header': [1, 2, 3, 4, 5, 6, false] }],
-      [{ 'font': [] }],
-      [{ 'size': ['small', false, 'large', 'huge'] }],
-      ['bold', 'italic', 'underline', 'strike'],
-      [{ 'color': [] }, { 'background': [] }],
-      [{ 'list': 'ordered'}, { 'list': 'bullet' }],
-      [{ 'align': [] }],
-      ['link', 'image'],
-      ['clean']
-    ]
-  };
-
-  const formats = [
-    'header', 'font', 'size',
-    'bold', 'italic', 'underline', 'strike',
-    'color', 'background',
-    'list', 'bullet',
-    'align',
-    'link', 'image'
-  ];
 
   return (
     <Card className="h-full shadow-lg">
@@ -275,14 +252,26 @@ export const NotesEditor = ({ content, onContentChange }: NotesEditorProps) => {
 
         <TabsContent value="edit" className="m-0 p-4">
           <div data-testid="rich-text-editor">
-            <ReactQuill
-              theme="snow"
+            <Editor
+              apiKey={import.meta.env.VITE_TINY_API}
+              onInit={(_evt, editor) => editorRef.current = editor}
               value={content}
-              onChange={onContentChange}
-              modules={modules}
-              formats={formats}
-              className="min-h-[600px]"
-              placeholder="Your generated notes will appear here. Use the toolbar to format text, add images, and customize your notes..."
+              onEditorChange={onContentChange}
+              init={{
+                height: 600,
+                menubar: true,
+                plugins: [
+                  'advlist', 'autolink', 'lists', 'link', 'image', 'charmap', 'preview',
+                  'anchor', 'searchreplace', 'visualblocks', 'code', 'fullscreen',
+                  'insertdatetime', 'media', 'table', 'code', 'help', 'wordcount'
+                ],
+                toolbar: 'undo redo | blocks | ' +
+                  'bold italic forecolor | alignleft aligncenter ' +
+                  'alignright alignjustify | bullist numlist outdent indent | ' +
+                  'removeformat | image media table | help',
+                content_style: 'body { font-family:Arial,sans-serif; font-size:14px }',
+                placeholder: 'Your generated notes will appear here. Use the toolbar to format text, add images, and customize your notes...'
+              }}
             />
           </div>
         </TabsContent>
