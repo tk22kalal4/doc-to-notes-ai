@@ -1,21 +1,42 @@
 import { useState } from 'react';
-import { FileText, Upload, Scissors, ScanText, Sparkles, X, Download } from 'lucide-react';
+import { FileText, Upload, Scissors, ScanText, Sparkles, X, Download, Image as ImageIcon } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
 import { Progress } from '@/components/ui/progress';
 import { PDFViewer } from '@/components/PDFViewer';
 import { OCRProcessor } from '@/components/OCRProcessor';
 import { NoteGenerator } from '@/components/NoteGenerator';
 import { NotesEditor } from '@/components/NotesEditor';
 import { AIChatbot } from '@/components/AIChatbot';
+import { ImageUploader } from '@/components/ImageUploader';
+import { ImageSequenceManager } from '@/components/ImageSequenceManager';
+import { ImageViewer } from '@/components/ImageViewer';
+import { ImageOCRProcessor } from '@/components/ImageOCRProcessor';
+import { arrangeImagesIntoA4Pages } from '@/utils/imageToA4';
+
+interface ImageItem {
+  id: string;
+  file: File;
+  url: string;
+}
 
 const Index = () => {
+  const [uploadMode, setUploadMode] = useState<'pdf' | 'image' | null>(null);
+  
+  // PDF states
   const [pdfFile, setPdfFile] = useState<File | null>(null);
   const [totalPages, setTotalPages] = useState(0);
   const [pageRanges, setPageRanges] = useState('');
   const [tempPageRanges, setTempPageRanges] = useState('');
   const [showSplitInput, setShowSplitInput] = useState(false);
+  
+  // Image states
+  const [images, setImages] = useState<ImageItem[]>([]);
+  const [showImageManager, setShowImageManager] = useState(false);
+  const [a4Pages, setA4Pages] = useState<HTMLCanvasElement[]>([]);
+  const [isArrangingPages, setIsArrangingPages] = useState(false);
+  
+  // Common states
   const [isOCRProcessing, setIsOCRProcessing] = useState(false);
   const [ocrTexts, setOcrTexts] = useState<string[]>([]);
   const [isGeneratingNotes, setIsGeneratingNotes] = useState(false);
@@ -31,7 +52,6 @@ const Index = () => {
     if (file && file.type === 'application/pdf') {
       const fileSizeMB = file.size / (1024 * 1024);
       
-      // Warning for files larger than 50MB
       if (fileSizeMB > 50) {
         const confirmUpload = window.confirm(
           `⚠️ Large File Warning\n\n` +
@@ -50,7 +70,6 @@ const Index = () => {
         }
       }
       
-      // Block files larger than 500MB to prevent crashes
       if (fileSizeMB > 500) {
         alert(
           `❌ File Too Large\n\n` +
@@ -65,11 +84,41 @@ const Index = () => {
         return;
       }
       
+      setUploadMode('pdf');
       setPdfFile(file);
       setPageRanges('');
       setOcrTexts([]);
       setGeneratedNotes('');
       setShowNotes(false);
+    }
+  };
+
+  const handleImagesSelect = (files: File[]) => {
+    const newImages: ImageItem[] = files.map(file => ({
+      id: Math.random().toString(36).substr(2, 9),
+      file,
+      url: URL.createObjectURL(file)
+    }));
+    
+    setImages(prev => [...prev, ...newImages]);
+    setShowImageManager(true);
+    setUploadMode('image');
+  };
+
+  const handleArrangeImages = async () => {
+    if (images.length === 0) return;
+    
+    setIsArrangingPages(true);
+    try {
+      const imageData = images.map(img => ({ file: img.file, url: img.url }));
+      const pages = await arrangeImagesIntoA4Pages(imageData);
+      setA4Pages(pages);
+      setShowImageManager(false);
+    } catch (error) {
+      console.error('Error arranging images:', error);
+      alert('Failed to arrange images into pages. Please try again.');
+    } finally {
+      setIsArrangingPages(false);
     }
   };
 
@@ -129,6 +178,7 @@ const Index = () => {
   };
 
   const resetApp = () => {
+    setUploadMode(null);
     setPdfFile(null);
     setTotalPages(0);
     setPageRanges('');
@@ -138,6 +188,10 @@ const Index = () => {
     setIsGeneratingNotes(false);
     setGeneratedNotes('');
     setShowNotes(false);
+    images.forEach(img => URL.revokeObjectURL(img.url));
+    setImages([]);
+    setShowImageManager(false);
+    setA4Pages([]);
   };
 
   return (
@@ -157,7 +211,7 @@ const Index = () => {
                 </p>
               </div>
             </div>
-            {pdfFile && (
+            {(pdfFile || images.length > 0) && (
               <Button
                 variant="ghost"
                 size="sm"
@@ -166,7 +220,7 @@ const Index = () => {
                 data-testid="button-reset"
               >
                 <X className="h-4 w-4" />
-                <span className="hidden sm:inline">New PDF</span>
+                <span className="hidden sm:inline">New Upload</span>
               </Button>
             )}
           </div>
@@ -175,39 +229,102 @@ const Index = () => {
 
       {/* Main Content */}
       <main className="flex-1 overflow-hidden">
-        {!pdfFile ? (
-          /* Full Screen Upload */
+        {!uploadMode ? (
+          /* Full Screen Upload - Mode Selection */
           <div className="h-full flex items-center justify-center p-4">
-            <div className="w-full max-w-2xl">
+            <div className="w-full max-w-4xl">
               <div className="text-center mb-8">
                 <div className="flex justify-center mb-4">
                   <div className="h-20 w-20 rounded-full bg-primary/10 flex items-center justify-center">
                     <Upload className="h-10 w-10 text-primary" />
                   </div>
                 </div>
-                <h2 className="text-2xl sm:text-3xl font-bold mb-2">Upload Medical PDF</h2>
-                <p className="text-muted-foreground">Start by uploading your PDF document</p>
+                <h2 className="text-2xl sm:text-3xl font-bold mb-2">Upload Medical Documents</h2>
+                <p className="text-muted-foreground">Choose PDF or images to start</p>
               </div>
               
-              <label
-                htmlFor="pdf-upload"
-                className="block w-full cursor-pointer"
-                data-testid="label-upload"
-              >
-                <div className="border-2 border-dashed border-primary/30 rounded-2xl p-8 sm:p-12 hover:border-primary/60 hover:bg-primary/5 transition-all duration-200 text-center">
-                  <Upload className="h-12 w-12 sm:h-16 sm:w-16 mx-auto mb-4 text-primary" />
-                  <p className="text-lg font-medium mb-2">Click to browse</p>
-                  <p className="text-sm text-muted-foreground">or drag & drop your PDF here</p>
-                  <input
-                    id="pdf-upload"
-                    type="file"
-                    accept="application/pdf"
-                    onChange={handleFileSelect}
-                    className="hidden"
-                    data-testid="input-pdf-upload"
-                  />
+              <div className="grid md:grid-cols-2 gap-6">
+                {/* PDF Upload */}
+                <label
+                  htmlFor="pdf-upload"
+                  className="block w-full cursor-pointer"
+                  data-testid="label-upload"
+                >
+                  <div className="border-2 border-dashed border-primary/30 rounded-2xl p-8 hover:border-primary/60 hover:bg-primary/5 transition-all duration-200 text-center h-full">
+                    <FileText className="h-12 w-12 mx-auto mb-4 text-primary" />
+                    <p className="text-lg font-medium mb-2">PDF Document</p>
+                    <p className="text-sm text-muted-foreground">Upload a PDF file</p>
+                    <input
+                      id="pdf-upload"
+                      type="file"
+                      accept="application/pdf"
+                      onChange={handleFileSelect}
+                      className="hidden"
+                      data-testid="input-pdf-upload"
+                    />
+                  </div>
+                </label>
+
+                {/* Image Upload */}
+                <div onClick={() => document.getElementById('initial-image-upload')?.click()} className="cursor-pointer">
+                  <div className="border-2 border-dashed border-accent/30 rounded-2xl p-8 hover:border-accent/60 hover:bg-accent/5 transition-all duration-200 text-center h-full">
+                    <ImageIcon className="h-12 w-12 mx-auto mb-4 text-accent" />
+                    <p className="text-lg font-medium mb-2">Medical Images</p>
+                    <p className="text-sm text-muted-foreground">Upload one or multiple images</p>
+                    <input
+                      id="initial-image-upload"
+                      type="file"
+                      accept="image/*"
+                      multiple
+                      onChange={(e) => {
+                        const files = e.target.files;
+                        if (files && files.length > 0) {
+                          handleImagesSelect(Array.from(files));
+                        }
+                      }}
+                      className="hidden"
+                    />
+                  </div>
                 </div>
-              </label>
+              </div>
+            </div>
+          </div>
+        ) : showImageManager ? (
+          /* Image Management View */
+          <div className="h-full p-4">
+            <div className="h-full max-w-4xl mx-auto space-y-4">
+              <ImageSequenceManager 
+                images={images}
+                onImagesChange={setImages}
+                onAddMore={() => document.getElementById('add-more-images')?.click()}
+              />
+              <input
+                id="add-more-images"
+                type="file"
+                accept="image/*"
+                multiple
+                onChange={(e) => {
+                  const files = e.target.files;
+                  if (files && files.length > 0) {
+                    handleImagesSelect(Array.from(files));
+                  }
+                }}
+                className="hidden"
+              />
+              <div className="flex gap-3">
+                <Button
+                  onClick={handleArrangeImages}
+                  disabled={images.length === 0 || isArrangingPages}
+                  className="flex-1 gap-2"
+                  size="lg"
+                >
+                  {isArrangingPages ? (
+                    <>Processing...</>
+                  ) : (
+                    <>Arrange into Pages & Continue</>
+                  )}
+                </Button>
+              </div>
             </div>
           </div>
         ) : showNotes ? (
@@ -220,7 +337,7 @@ const Index = () => {
               />
             </div>
           </div>
-        ) : (
+        ) : uploadMode === 'pdf' && pdfFile ? (
           /* PDF View with Toolbar */
           <div className="h-full flex flex-col">
             {/* Compact Toolbar */}
@@ -383,7 +500,126 @@ const Index = () => {
               </div>
             </div>
           </div>
-        )}
+        ) : uploadMode === 'image' && a4Pages.length > 0 ? (
+          /* Image View with Toolbar */
+          <div className="h-full flex flex-col">
+            {/* Compact Toolbar */}
+            <div className="bg-card/80 backdrop-blur-sm border-b px-3 py-2 sm:px-4 sm:py-3">
+              <div className="max-w-7xl mx-auto">
+                <div className="flex flex-wrap items-center gap-2">
+                  {/* Page Info */}
+                  <div className="text-xs sm:text-sm text-muted-foreground bg-accent/5 px-3 py-1.5 rounded-md">
+                    {a4Pages.length} page{a4Pages.length > 1 ? 's' : ''} created from {images.length} image{images.length > 1 ? 's' : ''}
+                  </div>
+
+                  {/* OCR Button or Progress */}
+                  {ocrTexts.length === 0 && !isOCRProcessing && (
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => setIsOCRProcessing(true)}
+                      disabled={isOCRProcessing}
+                      className="gap-2"
+                      data-testid="button-start-image-ocr"
+                    >
+                      <ScanText className="h-4 w-4" />
+                      <span className="hidden sm:inline">Extract Text</span>
+                      <span className="sm:hidden">OCR</span>
+                    </Button>
+                  )}
+
+                  {/* OCR Progress */}
+                  {isOCRProcessing && (
+                    <div className="flex items-center gap-2 flex-1 max-w-md" data-testid="image-ocr-progress-container">
+                      <div className="flex-1 space-y-1">
+                        <div className="flex justify-between text-xs">
+                          <span className="text-muted-foreground">
+                            Processing page {ocrCurrentPage}...
+                          </span>
+                          <span className="font-medium text-primary">{Math.round(ocrProgress)}%</span>
+                        </div>
+                        <Progress value={ocrProgress} className="h-2" data-testid="progress-image-ocr" />
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Hidden OCR Processor */}
+                  {isOCRProcessing && (
+                    <div className="hidden">
+                      <ImageOCRProcessor
+                        pages={a4Pages}
+                        onOCRComplete={handleOCRComplete}
+                        onProgress={handleOCRProgress}
+                      />
+                    </div>
+                  )}
+
+                  {/* Generate Notes Button or Progress */}
+                  {ocrTexts.length > 0 && !isGeneratingNotes && !generatedNotes && (
+                    <Button
+                      size="sm"
+                      className="gap-2"
+                      onClick={() => setIsGeneratingNotes(true)}
+                      disabled={isGeneratingNotes}
+                      data-testid="button-trigger-generate-from-images"
+                    >
+                      <Sparkles className="h-4 w-4" />
+                      <span className="hidden sm:inline">Generate Notes</span>
+                      <span className="sm:hidden">Generate</span>
+                    </Button>
+                  )}
+
+                  {/* Notes Generation Progress */}
+                  {isGeneratingNotes && (
+                    <div className="flex items-center gap-2 flex-1 max-w-md" data-testid="image-notes-progress-container">
+                      <div className="flex-1 space-y-1">
+                        <div className="flex justify-between text-xs">
+                          <span className="text-muted-foreground">
+                            Generating page {notesCurrentPage} of {ocrTexts.length}...
+                          </span>
+                          <span className="font-medium text-accent">{Math.round(notesProgress)}%</span>
+                        </div>
+                        <Progress value={notesProgress} className="h-2" data-testid="progress-image-notes" />
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Hidden Note Generator */}
+                  {isGeneratingNotes && (
+                    <div className="hidden">
+                      <NoteGenerator
+                        ocrTexts={ocrTexts}
+                        onNotesGenerated={handleNotesGenerated}
+                        onProgress={handleNotesProgress}
+                      />
+                    </div>
+                  )}
+
+                  {/* View Notes Button */}
+                  {generatedNotes && (
+                    <Button
+                      size="sm"
+                      variant="default"
+                      onClick={() => setShowNotes(true)}
+                      className="gap-2"
+                      data-testid="button-view-notes-from-images"
+                    >
+                      <Download className="h-4 w-4" />
+                      View Notes
+                    </Button>
+                  )}
+                </div>
+              </div>
+            </div>
+
+            {/* Image Viewer - Full Screen with Vertical Scroll */}
+            <div className="flex-1 overflow-hidden p-2 sm:p-4">
+              <div className="h-full max-w-7xl mx-auto">
+                <ImageViewer pages={a4Pages} />
+              </div>
+            </div>
+          </div>
+        ) : null}
       </main>
 
       {/* AI Chatbot - Shows after notes are generated */}
