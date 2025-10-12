@@ -20,6 +20,7 @@ interface ImageItem {
   url: string;
 }
 
+
 const Index = () => {
   const [uploadMode, setUploadMode] = useState<'pdf' | 'image' | null>(null);
   
