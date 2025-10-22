@@ -23,16 +23,16 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
-      
+
       - name: Set up Node
         uses: actions/setup-node@v4
         with:
           node-version: 18
           cache: 'npm'
-          
+
       - name: Install dependencies
         run: npm ci
-        
+
       - name: Build
         run: npm run build
         env:
@@ -40,18 +40,18 @@ jobs:
           VITE_GROQ_API_KEY: ${{ secrets.API_KEY }}
           VITE_GROQ_API_KEY_X: ${{ secrets.API_KEY_X }}
           VITE_TINY_API: ${{ secrets.TINY_API }}
-        
+
       - name: Create 404.html for SPA routing
         run: cp dist/index.html dist/404.html
-        
+
       - name: Setup Pages
         uses: actions/configure-pages@v4
-        
+
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3
         with:
           path: './dist'
-          
+
       - name: Deploy to GitHub Pages
         id: deployment
         uses: actions/deploy-pages@v4
