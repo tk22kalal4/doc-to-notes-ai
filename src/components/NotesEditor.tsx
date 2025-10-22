@@ -35,12 +35,12 @@ export const NotesEditor = ({ content, onContentChange }: NotesEditorProps) => {
 
   // NOTES MAKING FUNCTIONALITY
   const handleGenerateNotes = async (inputText: string) => {
-    const apiKey = import.meta.env.VITE_API_KEY;
+    const apiKey = import.meta.env.VITE_GROQ_API_KEY;
     
     if (!apiKey) {
       toast({
         title: 'API Key Missing',
-        description: 'Please add VITE_API_KEY to your environment secrets to use the notes generation feature.',
+        description: 'Please add API_KEY to your GitHub repository secrets to use the notes generation feature.',
         variant: 'destructive'
       });
       return;
@@ -141,12 +141,12 @@ Return ONLY the comprehensive HTML medical notes.`;
 
   // TOUCHUP FUNCTIONALITY
   const handleTouchup = async () => {
-    const apiKey = import.meta.env.VITE_API_KEY_X;
+    const apiKey = import.meta.env.VITE_GROQ_API_KEY_X;
     
     if (!apiKey) {
       toast({
         title: 'API Key Missing',
-        description: 'Please add VITE_API_KEY_X to your environment secrets to use the touchup feature.',
+        description: 'Please add API_KEY_X to your GitHub repository secrets to use the touchup feature.',
         variant: 'destructive'
       });
       return;
