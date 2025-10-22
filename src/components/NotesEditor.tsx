@@ -480,12 +480,6 @@ Return ONLY the enhanced HTML content with perfect medical formatting.`;
     }
   };
 
-  // Export the notes making function so parent component can use it
-  const notesMakingFunctions = {
-    generateNotes: handleGenerateNotes,
-    isGenerating
-  };
-
   return (
     <Card className="h-full shadow-lg">
       <div className="border-b p-4">
@@ -600,6 +594,3 @@ Return ONLY the enhanced HTML content with perfect medical formatting.`;
     </Card>
   );
 };
-
-// Export the notes making functions for parent component usage
-export { notesMakingFunctions };
