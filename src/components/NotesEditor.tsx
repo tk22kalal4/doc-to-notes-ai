@@ -1,4 +1,3 @@
-
 import { useState, useRef, useEffect } from 'react';
 import { Download, Copy, Edit3, Eye, Sparkles, Undo2, Redo2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -16,6 +15,7 @@ interface NotesEditorProps {
 export const NotesEditor = ({ content, onContentChange }: NotesEditorProps) => {
   const [activeTab, setActiveTab] = useState<'preview' | 'edit'>('preview');
   const [isTouchingUp, setIsTouchingUp] = useState(false);
+  const [isGenerating, setIsGenerating] = useState(false);
   const [contentHistory, setContentHistory] = useState<string[]>([]);
   const [historyIndex, setHistoryIndex] = useState(-1);
   const { toast } = useToast();
@@ -32,6 +32,274 @@ export const NotesEditor = ({ content, onContentChange }: NotesEditorProps) => {
       setHistoryIndex(0);
     }
   }, [content]);
+
+  // NOTES MAKING FUNCTIONALITY
+  const handleGenerateNotes = async (inputText: string) => {
+    const apiKey = import.meta.env.VITE_API_KEY;
+    
+    if (!apiKey) {
+      toast({
+        title: 'API Key Missing',
+        description: 'Please add VITE_API_KEY to your environment secrets to use the notes generation feature.',
+        variant: 'destructive'
+      });
+      return;
+    }
+
+    setIsGenerating(true);
+
+    try {
+      // REGULAR NOTES MAKING PROMPT
+      const notesMakingSystemPrompt = `You are an expert medical educator and note-taker. Your task is to create comprehensive, well-structured medical notes from the provided input.
+
+MEDICAL NOTES CREATION GUIDELINES:
+
+1. CONTENT REQUIREMENTS:
+   - Create detailed, accurate medical explanations
+   - Include relevant anatomy, physiology, and pathophysiology
+   - Cover symptoms, diagnosis, and treatment options
+   - Add important clinical pearls and key takeaways
+   - Include relevant drug information with proper formatting
+
+2. STRUCTURE & ORGANIZATION:
+   - Use clear hierarchical headings (H1, H2, H3, H4)
+   - Organize content logically from general to specific
+   - Group related concepts together
+   - Include bullet points for lists and key features
+   - Add section breaks between major topics
+
+3. FORMATTING SPECIFICATIONS:
+   - Use HTML tags: h1, h2, h3, h4, ul, li, strong, p, hr, br
+   - Apply <strong> tags to important medical terms and key concepts
+   - Use <hr> between major sections
+   - Include appropriate medical emojis (🏥, 💊, ❤️, 🧠, 🔬, etc.)
+   - Maintain professional medical tone
+   - Ensure proper spacing and readability
+
+4. MEDICAL ACCURACY:
+   - Ensure all medical information is accurate and current
+   - Use proper medical terminology
+   - Include relevant clinical context
+   - Add practical applications where appropriate
+
+Return ONLY the comprehensive HTML medical notes.`;
+
+      const response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${apiKey}`
+        },
+        body: JSON.stringify({
+          // REGULAR MODEL FOR NOTES MAKING
+          model: 'meta-llama/llama-4-scout-17b-16e-instruct',
+          messages: [
+            { role: 'system', content: notesMakingSystemPrompt },
+            { role: 'user', content: `Please create comprehensive medical notes about:\n\n${inputText}` }
+          ],
+          temperature: 0.7,
+          max_tokens: 4096,
+          top_p: 0.9
+        })
+      });
+
+      if (!response.ok) {
+        throw new Error(`API request failed: ${response.statusText}`);
+      }
+
+      const data = await response.json();
+      const generatedContent = data.choices[0]?.message?.content || '';
+
+      // Update history with new generated content
+      const newHistory = [...contentHistory, generatedContent];
+      const newIndex = newHistory.length - 1;
+      setContentHistory(newHistory);
+      setHistoryIndex(newIndex);
+      historyRef.current = { history: newHistory, index: newIndex };
+
+      onContentChange(generatedContent);
+      
+      toast({
+        title: 'Notes Generated!',
+        description: 'Your medical notes have been successfully created.',
+      });
+
+      return generatedContent;
+
+    } catch (error) {
+      console.error('Notes generation error:', error);
+      toast({
+        title: 'Generation Failed',
+        description: error instanceof Error ? error.message : 'Failed to generate notes. Please try again.',
+        variant: 'destructive'
+      });
+      return '';
+    } finally {
+      setIsGenerating(false);
+    }
+  };
+
+  // TOUCHUP FUNCTIONALITY
+  const handleTouchup = async () => {
+    const apiKey = import.meta.env.VITE_API_KEY_X;
+    
+    if (!apiKey) {
+      toast({
+        title: 'API Key Missing',
+        description: 'Please add VITE_API_KEY_X to your environment secrets to use the touchup feature.',
+        variant: 'destructive'
+      });
+      return;
+    }
+
+    const currentContent = content;
+    const { history: currentHistory, index: currentIndex } = historyRef.current;
+    const lastEntry = currentHistory[currentIndex];
+    
+    if (currentContent !== lastEntry) {
+      const newHistory = currentHistory.slice(0, currentIndex + 1);
+      newHistory.push(currentContent);
+      const newIndex = newHistory.length - 1;
+      setContentHistory(newHistory);
+      setHistoryIndex(newIndex);
+      historyRef.current = { history: newHistory, index: newIndex };
+    }
+
+    setIsTouchingUp(true);
+
+    try {
+      // NEW TOUCHUP PROMPT
+      const touchupSystemPrompt = `You are an expert medical content enhancer and formatter. Your task is to transform medical notes into perfectly structured, well-organized, and highly readable content while preserving ALL medical accuracy and information.
+
+IMPORTANT RULES:
+- PRESERVE every medical fact, data point, drug name, dosage, symptom, diagnosis, and clinical finding
+- MAINTAIN all technical medical terminology and accuracy
+- ENHANCE structure and readability without altering medical meaning
+- USE proper medical hierarchy and organization
+
+SPECIFIC IMPROVEMENTS TO MAKE:
+
+1. STRUCTURAL ENHANCEMENT:
+   - Create clear hierarchical headings (H1 for main sections, H2 for subsections, H3 for details)
+   - Group related concepts together logically
+   - Add appropriate spacing and section breaks
+   - Ensure consistent formatting throughout
+
+2. CONTENT OPTIMIZATION:
+   - Remove redundant phrasing while keeping all unique information
+   - Improve flow between related concepts
+   - Add logical transitions between sections
+   - Enhance clarity without simplifying medical content
+
+3. FORMATTING REQUIREMENTS:
+   - Use HTML tags: h1, h2, h3, h4, ul, li, strong, p, hr, br
+   - Apply <strong> tags to key medical terms and important concepts
+   - Use <hr> between major sections
+   - Include appropriate medical emojis (🏥, 💊, ❤️, 🧠, etc.) for visual enhancement
+   - Maintain professional medical tone
+   - Ensure proper spacing with <br> tags
+
+4. MEDICAL CONTENT PRESERVATION:
+   - DO NOT remove any medical information, symptoms, treatments, or findings
+   - DO NOT alter dosages, drug names, or clinical values
+   - DO NOT change diagnostic criteria or medical recommendations
+   - DO NOT simplify complex medical concepts
+
+5. ORGANIZATION PRINCIPLES:
+   - Group symptoms together
+   - Organize treatments by category
+   - Structure diagnostic criteria clearly
+   - Separate pathophysiology from clinical presentation
+
+Return ONLY the enhanced HTML content with perfect medical formatting.`;
+
+      const response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${apiKey}`
+        },
+        body: JSON.stringify({
+          // DIFFERENT MODEL FOR TOUCHUP
+          model: 'llama-3.3-70b-versatile',
+          messages: [
+            { role: 'system', content: touchupSystemPrompt },
+            { role: 'user', content: `Please enhance and format these medical notes while preserving all medical accuracy:\n\n${currentContent}` }
+          ],
+          temperature: 0.2, // Lower temperature for more consistent medical formatting
+          max_tokens: 8192, // Higher token limit for comprehensive notes
+          top_p: 0.9
+        })
+      });
+
+      if (!response.ok) {
+        throw new Error(`API request failed: ${response.statusText}`);
+      }
+
+      const data = await response.json();
+      const touchedUpContent = data.choices[0]?.message?.content || currentContent;
+
+      const { history: latestHistory, index: latestIndex } = historyRef.current;
+      const finalHistory = latestHistory.slice(0, latestIndex + 1);
+      finalHistory.push(touchedUpContent);
+      const finalIndex = finalHistory.length - 1;
+      setContentHistory(finalHistory);
+      setHistoryIndex(finalIndex);
+      historyRef.current = { history: finalHistory, index: finalIndex };
+
+      onContentChange(touchedUpContent);
+      
+      toast({
+        title: 'Touchup Complete!',
+        description: 'Your notes have been professionally formatted and enhanced.',
+      });
+    } catch (error) {
+      console.error('Touchup error:', error);
+      toast({
+        title: 'Touchup Failed',
+        description: error instanceof Error ? error.message : 'Failed to touchup notes. Please try again.',
+        variant: 'destructive'
+      });
+    } finally {
+      setIsTouchingUp(false);
+    }
+  };
+
+  const handleUndo = () => {
+    if (historyIndex > 0) {
+      const newIndex = historyIndex - 1;
+      setHistoryIndex(newIndex);
+      onContentChange(contentHistory[newIndex]);
+      toast({
+        title: 'Undo Successful',
+        description: 'Reverted to previous version.'
+      });
+    } else {
+      toast({
+        title: 'Nothing to Undo',
+        description: 'No previous version available.',
+        variant: 'destructive'
+      });
+    }
+  };
+
+  const handleRedo = () => {
+    if (historyIndex < contentHistory.length - 1) {
+      const newIndex = historyIndex + 1;
+      setHistoryIndex(newIndex);
+      onContentChange(contentHistory[newIndex]);
+      toast({
+        title: 'Redo Successful',
+        description: 'Restored next version.'
+      });
+    } else {
+      toast({
+        title: 'Nothing to Redo',
+        description: 'No next version available.',
+        variant: 'destructive'
+      });
+    }
+  };
 
   const handleDownload = () => {
     const element = document.createElement('div');
@@ -212,161 +480,17 @@ export const NotesEditor = ({ content, onContentChange }: NotesEditorProps) => {
     }
   };
 
-  const handleTouchup = async () => {
-    const apiKey = import.meta.env.VITE_API_KEY_X;
-    
-    if (!apiKey) {
-      toast({
-        title: 'API Key Missing',
-        description: 'Please add VITE_API_KEY_X to your environment secrets to use the touchup feature.',
-        variant: 'destructive'
-      });
-      return;
-    }
-
-    const currentContent = content;
-    const { history: currentHistory, index: currentIndex } = historyRef.current;
-    const lastEntry = currentHistory[currentIndex];
-    
-    if (currentContent !== lastEntry) {
-      const newHistory = currentHistory.slice(0, currentIndex + 1);
-      newHistory.push(currentContent);
-      const newIndex = newHistory.length - 1;
-      setContentHistory(newHistory);
-      setHistoryIndex(newIndex);
-      historyRef.current = { history: newHistory, index: newIndex };
-    }
-
-    setIsTouchingUp(true);
-
-    try {
-      const systemPrompt = `You are an expert medical note formatter and editor. Your task is to:
-
-1. ANALYZE the notes for:
-   - Duplicate information that can be consolidated
-   - Inconsistent formatting or structure
-   - Missing connections between related topics
-   - Poorly organized content
-
-2. IMPROVE the notes by:
-   - Merging duplicate content while keeping ALL unique information
-   - Creating clear interconnections between related concepts
-   - Fixing any formatting errors or structural issues
-   - Ensuring consistent heading hierarchy (H1 for main topics, H2 for subtopics, H3 for subsections)
-   - Adding cross-references where topics relate to each other
-   - Improving readability while maintaining all medical facts
-
-3. FORMATTING RULES:
-   - Keep all medical facts, numbers, drug names, values, and examples
-   - Use HTML formatting with proper tags (h1, h2, h3, ul, li, strong, p, hr)
-   - Use emojis appropriately for visual appeal (medical/educational emojis)
-   - Bold important terms with <strong> tags
-   - Use <hr> to separate major sections
-   - Maintain proper spacing with <br> tags
-   - Keep language simple and easy to understand
-
-4. CRITICAL RULES:
-   - DO NOT delete any important medical information
-   - DO NOT change the meaning of any content
-   - DO compress duplicates into single, well-organized sections
-   - DO add connecting phrases like "Related to..." or "See also..." when linking topics
-   - DO fix any HTML formatting errors
-   - DO improve structure and readability
-
-Return ONLY the improved HTML content, no explanations.`;
-
-      const response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${apiKey}`
-        },
-        body: JSON.stringify({
-          model: 'meta-llama/llama-4-scout-17b-16e-instruct',
-          messages: [
-            { role: 'system', content: systemPrompt },
-            { role: 'user', content: `Here are the notes to touchup and improve:\n\n${currentContent}` }
-          ],
-          temperature: 0.3,
-          max_tokens: 4096
-        })
-      });
-
-      if (!response.ok) {
-        throw new Error(`API request failed: ${response.statusText}`);
-      }
-
-      const data = await response.json();
-      const touchedUpContent = data.choices[0]?.message?.content || currentContent;
-
-      const { history: latestHistory, index: latestIndex } = historyRef.current;
-      const finalHistory = latestHistory.slice(0, latestIndex + 1);
-      finalHistory.push(touchedUpContent);
-      const finalIndex = finalHistory.length - 1;
-      setContentHistory(finalHistory);
-      setHistoryIndex(finalIndex);
-      historyRef.current = { history: finalHistory, index: finalIndex };
-
-      onContentChange(touchedUpContent);
-      
-      toast({
-        title: 'Touchup Complete!',
-        description: 'Your notes have been formatted and improved. You can undo if needed.',
-      });
-    } catch (error) {
-      console.error('Touchup error:', error);
-      toast({
-        title: 'Touchup Failed',
-        description: error instanceof Error ? error.message : 'Failed to touchup notes. Please try again.',
-        variant: 'destructive'
-      });
-    } finally {
-      setIsTouchingUp(false);
-    }
+  // Export the notes making function so parent component can use it
+  const notesMakingFunctions = {
+    generateNotes: handleGenerateNotes,
+    isGenerating
   };
-
-  const handleUndo = () => {
-    if (historyIndex > 0) {
-      const newIndex = historyIndex - 1;
-      setHistoryIndex(newIndex);
-      onContentChange(contentHistory[newIndex]);
-      toast({
-        title: 'Undo Successful',
-        description: 'Reverted to previous version.'
-      });
-    } else {
-      toast({
-        title: 'Nothing to Undo',
-        description: 'No previous version available.',
-        variant: 'destructive'
-      });
-    }
-  };
-
-  const handleRedo = () => {
-    if (historyIndex < contentHistory.length - 1) {
-      const newIndex = historyIndex + 1;
-      setHistoryIndex(newIndex);
-      onContentChange(contentHistory[newIndex]);
-      toast({
-        title: 'Redo Successful',
-        description: 'Restored next version.'
-      });
-    } else {
-      toast({
-        title: 'Nothing to Redo',
-        description: 'No next version available.',
-        variant: 'destructive'
-      });
-    }
-  };
-
 
   return (
     <Card className="h-full shadow-lg">
       <div className="border-b p-4">
         <div className="flex items-center justify-between">
-          <h3 className="font-semibold text-foreground">Generated Notes</h3>
+          <h3 className="font-semibold text-foreground">Medical Notes</h3>
           <div className="flex gap-2">
             <Button
               onClick={handleTouchup}
@@ -476,3 +600,6 @@ Return ONLY the improved HTML content, no explanations.`;
     </Card>
   );
 };
+
+// Export the notes making functions for parent component usage
+export { notesMakingFunctions };
