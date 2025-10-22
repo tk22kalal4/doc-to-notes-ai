@@ -1,6 +1,6 @@
 
-import { useState, useRef } from 'react';
-import { Download, Copy, Edit3, Eye } from 'lucide-react';
+import { useState, useRef, useEffect } from 'react';
+import { Download, Copy, Edit3, Eye, Sparkles, Undo2, Redo2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -15,8 +15,23 @@ interface NotesEditorProps {
 
 export const NotesEditor = ({ content, onContentChange }: NotesEditorProps) => {
   const [activeTab, setActiveTab] = useState<'preview' | 'edit'>('preview');
+  const [isTouchingUp, setIsTouchingUp] = useState(false);
+  const [contentHistory, setContentHistory] = useState<string[]>([]);
+  const [historyIndex, setHistoryIndex] = useState(-1);
   const { toast } = useToast();
   const editorRef = useRef<any>(null);
+  const historyRef = useRef<{ history: string[]; index: number }>({ history: [], index: -1 });
+
+  useEffect(() => {
+    historyRef.current = { history: contentHistory, index: historyIndex };
+  }, [contentHistory, historyIndex]);
+
+  useEffect(() => {
+    if (content && contentHistory.length === 0) {
+      setContentHistory([content]);
+      setHistoryIndex(0);
+    }
+  }, [content]);
 
   const handleDownload = () => {
     const element = document.createElement('div');
@@ -197,6 +212,155 @@ export const NotesEditor = ({ content, onContentChange }: NotesEditorProps) => {
     }
   };
 
+  const handleTouchup = async () => {
+    const apiKey = import.meta.env.VITE_API_KEY_X;
+    
+    if (!apiKey) {
+      toast({
+        title: 'API Key Missing',
+        description: 'Please add VITE_API_KEY_X to your environment secrets to use the touchup feature.',
+        variant: 'destructive'
+      });
+      return;
+    }
+
+    const currentContent = content;
+    const { history: currentHistory, index: currentIndex } = historyRef.current;
+    const lastEntry = currentHistory[currentIndex];
+    
+    if (currentContent !== lastEntry) {
+      const newHistory = currentHistory.slice(0, currentIndex + 1);
+      newHistory.push(currentContent);
+      const newIndex = newHistory.length - 1;
+      setContentHistory(newHistory);
+      setHistoryIndex(newIndex);
+      historyRef.current = { history: newHistory, index: newIndex };
+    }
+
+    setIsTouchingUp(true);
+
+    try {
+      const systemPrompt = `You are an expert medical note formatter and editor. Your task is to:
+
+1. ANALYZE the notes for:
+   - Duplicate information that can be consolidated
+   - Inconsistent formatting or structure
+   - Missing connections between related topics
+   - Poorly organized content
+
+2. IMPROVE the notes by:
+   - Merging duplicate content while keeping ALL unique information
+   - Creating clear interconnections between related concepts
+   - Fixing any formatting errors or structural issues
+   - Ensuring consistent heading hierarchy (H1 for main topics, H2 for subtopics, H3 for subsections)
+   - Adding cross-references where topics relate to each other
+   - Improving readability while maintaining all medical facts
+
+3. FORMATTING RULES:
+   - Keep all medical facts, numbers, drug names, values, and examples
+   - Use HTML formatting with proper tags (h1, h2, h3, ul, li, strong, p, hr)
+   - Use emojis appropriately for visual appeal (medical/educational emojis)
+   - Bold important terms with <strong> tags
+   - Use <hr> to separate major sections
+   - Maintain proper spacing with <br> tags
+   - Keep language simple and easy to understand
+
+4. CRITICAL RULES:
+   - DO NOT delete any important medical information
+   - DO NOT change the meaning of any content
+   - DO compress duplicates into single, well-organized sections
+   - DO add connecting phrases like "Related to..." or "See also..." when linking topics
+   - DO fix any HTML formatting errors
+   - DO improve structure and readability
+
+Return ONLY the improved HTML content, no explanations.`;
+
+      const response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${apiKey}`
+        },
+        body: JSON.stringify({
+          model: 'meta-llama/llama-4-scout-17b-16e-instruct',
+          messages: [
+            { role: 'system', content: systemPrompt },
+            { role: 'user', content: `Here are the notes to touchup and improve:\n\n${currentContent}` }
+          ],
+          temperature: 0.3,
+          max_tokens: 4096
+        })
+      });
+
+      if (!response.ok) {
+        throw new Error(`API request failed: ${response.statusText}`);
+      }
+
+      const data = await response.json();
+      const touchedUpContent = data.choices[0]?.message?.content || currentContent;
+
+      const { history: latestHistory, index: latestIndex } = historyRef.current;
+      const finalHistory = latestHistory.slice(0, latestIndex + 1);
+      finalHistory.push(touchedUpContent);
+      const finalIndex = finalHistory.length - 1;
+      setContentHistory(finalHistory);
+      setHistoryIndex(finalIndex);
+      historyRef.current = { history: finalHistory, index: finalIndex };
+
+      onContentChange(touchedUpContent);
+      
+      toast({
+        title: 'Touchup Complete!',
+        description: 'Your notes have been formatted and improved. You can undo if needed.',
+      });
+    } catch (error) {
+      console.error('Touchup error:', error);
+      toast({
+        title: 'Touchup Failed',
+        description: error instanceof Error ? error.message : 'Failed to touchup notes. Please try again.',
+        variant: 'destructive'
+      });
+    } finally {
+      setIsTouchingUp(false);
+    }
+  };
+
+  const handleUndo = () => {
+    if (historyIndex > 0) {
+      const newIndex = historyIndex - 1;
+      setHistoryIndex(newIndex);
+      onContentChange(contentHistory[newIndex]);
+      toast({
+        title: 'Undo Successful',
+        description: 'Reverted to previous version.'
+      });
+    } else {
+      toast({
+        title: 'Nothing to Undo',
+        description: 'No previous version available.',
+        variant: 'destructive'
+      });
+    }
+  };
+
+  const handleRedo = () => {
+    if (historyIndex < contentHistory.length - 1) {
+      const newIndex = historyIndex + 1;
+      setHistoryIndex(newIndex);
+      onContentChange(contentHistory[newIndex]);
+      toast({
+        title: 'Redo Successful',
+        description: 'Restored next version.'
+      });
+    } else {
+      toast({
+        title: 'Nothing to Redo',
+        description: 'No next version available.',
+        variant: 'destructive'
+      });
+    }
+  };
+
 
   return (
     <Card className="h-full shadow-lg">
@@ -204,6 +368,39 @@ export const NotesEditor = ({ content, onContentChange }: NotesEditorProps) => {
         <div className="flex items-center justify-between">
           <h3 className="font-semibold text-foreground">Generated Notes</h3>
           <div className="flex gap-2">
+            <Button
+              onClick={handleTouchup}
+              variant="outline"
+              size="sm"
+              className="gap-2"
+              disabled={isTouchingUp || !content}
+              data-testid="button-touchup-notes"
+            >
+              <Sparkles className="h-4 w-4" />
+              {isTouchingUp ? 'Touching up...' : 'Touchup'}
+            </Button>
+            <Button
+              onClick={handleUndo}
+              variant="outline"
+              size="sm"
+              className="gap-2"
+              disabled={historyIndex <= 0}
+              data-testid="button-undo-touchup"
+            >
+              <Undo2 className="h-4 w-4" />
+              Undo
+            </Button>
+            <Button
+              onClick={handleRedo}
+              variant="outline"
+              size="sm"
+              className="gap-2"
+              disabled={historyIndex >= contentHistory.length - 1}
+              data-testid="button-redo-touchup"
+            >
+              <Redo2 className="h-4 w-4" />
+              Redo
+            </Button>
             <Button
               onClick={handleCopy}
               variant="outline"
