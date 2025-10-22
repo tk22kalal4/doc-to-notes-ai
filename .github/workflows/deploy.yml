@@ -1,3 +1,4 @@
+
 name: Deploy to GitHub Pages
 
 on:
@@ -38,7 +39,6 @@ jobs:
         env:
           NODE_ENV: production
           VITE_GROQ_API_KEY: ${{ secrets.API_KEY }}
-          VITE_GROQ_API_KEY_X: ${{ secrets.API_KEY_X }}
           VITE_TINY_API: ${{ secrets.TINY_API }}
         
       - name: Create 404.html for SPA routing
