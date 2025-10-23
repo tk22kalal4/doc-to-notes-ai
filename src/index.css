@@ -355,3 +355,18 @@ body,
   overflow-x: hidden;
 }
 
+/* Landscape-friendly reading layout for notes on tablets/desktops */
+@media (orientation: landscape) and (min-width: 768px) {
+  .notes-preview {
+    column-count: 2;
+    column-gap: 2rem;
+  }
+}
+
+/* Ensure single column on phones (portrait) */
+@media (max-width: 640px) {
+  .notes-preview {
+    column-count: 1;
+  }
+}
+
