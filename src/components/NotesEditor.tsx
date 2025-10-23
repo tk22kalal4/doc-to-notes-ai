@@ -15,7 +15,6 @@ interface NotesEditorProps {
 export const NotesEditor = ({ content, onContentChange }: NotesEditorProps) => {
   const [activeTab, setActiveTab] = useState<'preview' | 'edit'>('preview');
   const [isTouchingUp, setIsTouchingUp] = useState(false);
-  const [isGenerating, setIsGenerating] = useState(false);
   const [contentHistory, setContentHistory] = useState<string[]>([]);
   const [historyIndex, setHistoryIndex] = useState(-1);
   const { toast } = useToast();
@@ -33,113 +32,7 @@ export const NotesEditor = ({ content, onContentChange }: NotesEditorProps) => {
     }
   }, [content]);
 
-  // NOTES MAKING FUNCTIONALITY
-  const handleGenerateNotes = async (inputText: string) => {
-    const apiKey = import.meta.env.VITE_GROQ_API_KEY;
-    
-    if (!apiKey) {
-      toast({
-        title: 'API Key Missing',
-        description: 'Please add API_KEY to your GitHub repository secrets to use the notes generation feature.',
-        variant: 'destructive'
-      });
-      return;
-    }
-
-    setIsGenerating(true);
-
-    try {
-      // REGULAR NOTES MAKING PROMPT
-      const notesMakingSystemPrompt = `You are an expert medical educator and note-taker. Your task is to create comprehensive, well-structured medical notes from the provided input.
-
-MEDICAL NOTES CREATION GUIDELINES:
-
-1. CONTENT REQUIREMENTS:
-   - Create detailed, accurate medical explanations
-   - Include relevant anatomy, physiology, and pathophysiology
-   - Cover symptoms, diagnosis, and treatment options
-   - Add important clinical pearls and key takeaways
-   - Include relevant drug information with proper formatting
-
-2. STRUCTURE & ORGANIZATION:
-   - Use clear hierarchical headings (H1, H2, H3, H4)
-   - Organize content logically from general to specific
-   - Group related concepts together
-   - Include bullet points for lists and key features
-   - Add section breaks between major topics
-
-3. FORMATTING SPECIFICATIONS:
-   - Use HTML tags: h1, h2, h3, h4, ul, li, strong, p, hr, br
-   - Apply <strong> tags to important medical terms and key concepts
-   - Use <hr> between major sections
-   - Include appropriate medical emojis (🏥, 💊, ❤️, 🧠, 🔬, etc.)
-   - Maintain professional medical tone
-   - Ensure proper spacing and readability
-
-4. MEDICAL ACCURACY:
-   - Ensure all medical information is accurate and current
-   - Use proper medical terminology
-   - Include relevant clinical context
-   - Add practical applications where appropriate
-
-Return ONLY the comprehensive HTML medical notes.`;
-
-      const response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${apiKey}`
-        },
-        body: JSON.stringify({
-          // REGULAR MODEL FOR NOTES MAKING
-          model: 'meta-llama/llama-4-scout-17b-16e-instruct',
-          messages: [
-            { role: 'system', content: notesMakingSystemPrompt },
-            { role: 'user', content: `Please create comprehensive medical notes about:\n\n${inputText}` }
-          ],
-          temperature: 0.7,
-          max_tokens: 4096,
-          top_p: 0.9
-        })
-      });
-
-      if (!response.ok) {
-        throw new Error(`API request failed: ${response.statusText}`);
-      }
-
-      const data = await response.json();
-      const generatedContent = data.choices[0]?.message?.content || '';
-
-      // Update history with new generated content
-      const newHistory = [...contentHistory, generatedContent];
-      const newIndex = newHistory.length - 1;
-      setContentHistory(newHistory);
-      setHistoryIndex(newIndex);
-      historyRef.current = { history: newHistory, index: newIndex };
-
-      onContentChange(generatedContent);
-      
-      toast({
-        title: 'Notes Generated!',
-        description: 'Your medical notes have been successfully created.',
-      });
-
-      return generatedContent;
-
-    } catch (error) {
-      console.error('Notes generation error:', error);
-      toast({
-        title: 'Generation Failed',
-        description: error instanceof Error ? error.message : 'Failed to generate notes. Please try again.',
-        variant: 'destructive'
-      });
-      return '';
-    } finally {
-      setIsGenerating(false);
-    }
-  };
-
-  // TOUCHUP FUNCTIONALITY
+  // TOUCHUP FUNCTIONALITY - Enhance and format existing notes
   const handleTouchup = async () => {
     const apiKey = import.meta.env.VITE_GROQ_API_KEY_X;
     
