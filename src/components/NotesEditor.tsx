@@ -34,12 +34,12 @@ export const NotesEditor = ({ content, onContentChange }: NotesEditorProps) => {
 
   // TOUCHUP FUNCTIONALITY - Enhance and format existing notes
   const handleTouchup = async () => {
-    const apiKey = import.meta.env.VITE_GROQ_API_KEY_X;
+    const apiKey = import.meta.env.VITE_GROQ_API_KEY;
     
     if (!apiKey) {
       toast({
         title: 'API Key Missing',
-        description: 'Please add API_KEY_X to your GitHub repository secrets to use the touchup feature.',
+        description: 'Please add VITE_GROQ_API_KEY to your .env file to use the touchup feature.',
         variant: 'destructive'
       });
       return;

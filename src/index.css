@@ -310,3 +310,48 @@ All colors MUST be HSL.
   margin: 1rem 0;
   border-radius: 0.5rem;
 }
+
+/* PWA Orientation & Responsive Layout */
+@media (max-width: 640px) {
+  /* Phone devices - optimize for portrait */
+  @media (orientation: landscape) {
+    body {
+      font-size: 14px;
+    }
+    
+    .notes-preview h1 {
+      font-size: 1.5rem;
+    }
+    
+    .notes-preview h2 {
+      font-size: 1.25rem;
+    }
+  }
+}
+
+@media (min-width: 641px) and (max-width: 1024px) {
+  /* Tablet devices - optimize for landscape */
+  @media (orientation: portrait) {
+    body {
+      font-size: 15px;
+    }
+  }
+}
+
+/* Ensure safe area insets for PWA */
+@supports (padding: max(0px)) {
+  body {
+    padding-left: max(0px, env(safe-area-inset-left));
+    padding-right: max(0px, env(safe-area-inset-right));
+  }
+}
+
+/* Full screen PWA experience */
+html,
+body,
+#root {
+  width: 100%;
+  height: 100%;
+  overflow-x: hidden;
+}
+
