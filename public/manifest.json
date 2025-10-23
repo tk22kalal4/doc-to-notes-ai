@@ -1,8 +1,9 @@
 {
   "name": "Doc to Notes AI",
   "short_name": "Doc2Notes",
-  "description": "Convert your documents to AI-powered notes",
-  "start_url": "/",
+  "description": "Convert your documents and images to AI-powered medical notes with OCR and touchup features",
+  "start_url": "./",
+  "scope": "./",
   "display": "standalone",
   "background_color": "#ffffff",
   "theme_color": "#0891b2",
