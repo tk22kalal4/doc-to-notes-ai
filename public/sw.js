@@ -1,4 +1,4 @@
-const CACHE_NAME = 'doc2notes-v3';
+const CACHE_NAME = 'doc2notes-v4';
 const urlsToCache = [
   '/',
   '/index.html',
