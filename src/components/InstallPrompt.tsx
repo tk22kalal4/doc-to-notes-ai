@@ -51,11 +51,15 @@ export const InstallPrompt = () => {
   if (!showPrompt) return null;
 
   return (
-    <div className="fixed bottom-4 left-4 right-4 md:left-auto md:right-4 md:w-96 bg-card border rounded-lg shadow-lg p-4 z-50 animate-in slide-in-from-bottom duration-300">
+    <div 
+      className="fixed bottom-4 left-4 right-4 md:left-auto md:right-4 md:w-96 bg-card border rounded-lg shadow-lg p-4 z-50 animate-in slide-in-from-bottom duration-300"
+      data-testid="install-prompt-card"
+    >
       <button
         onClick={handleDismiss}
         className="absolute top-2 right-2 text-muted-foreground hover:text-foreground transition-colors"
         aria-label="Dismiss"
+        data-testid="button-dismiss-install"
       >
         <X className="h-4 w-4" />
       </button>
@@ -65,15 +69,27 @@ export const InstallPrompt = () => {
           <Download className="h-5 w-5 text-primary" />
         </div>
         <div className="flex-1">
-          <h3 className="font-semibold text-sm mb-1">Install Doc to Notes AI</h3>
-          <p className="text-xs text-muted-foreground mb-3">
-            Install our app for quick access and offline functionality
+          <h3 className="font-semibold text-sm mb-1" data-testid="text-install-title">
+            Install Doc to Notes AI
+          </h3>
+          <p className="text-xs text-muted-foreground mb-3" data-testid="text-install-description">
+            Install our app for quick access and offline functionality. Convert documents to notes anytime!
           </p>
           <div className="flex gap-2">
-            <Button onClick={handleInstall} size="sm" className="flex-1">
+            <Button 
+              onClick={handleInstall} 
+              size="sm" 
+              className="flex-1"
+              data-testid="button-install-app"
+            >
               Install
             </Button>
-            <Button onClick={handleDismiss} variant="outline" size="sm">
+            <Button 
+              onClick={handleDismiss} 
+              variant="outline" 
+              size="sm"
+              data-testid="button-install-later"
+            >
               Not now
             </Button>
           </div>
