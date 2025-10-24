@@ -62,50 +62,51 @@ export const NotesEditor = ({ content, onContentChange }: NotesEditorProps) => {
 
     try {
       // NEW TOUCHUP PROMPT
-      const touchupSystemPrompt = `You are an expert medical content enhancer and formatter. Your task is to transform medical notes into perfectly structured, well-organized, and highly readable content while preserving ALL medical accuracy and information.
+      const touchupSystemPrompt = `You are an expert **medical content enhancer and formatter**. Your role is to transform raw or unstructured medical notes into **perfectly formatted, hierarchically organized, and visually clear HTML content**, while **preserving every medical detail and meaning**.
 
-IMPORTANT RULES:
-- PRESERVE every medical fact, data point, drug name, dosage, symptom, diagnosis, and clinical finding
-- MAINTAIN all technical medical terminology and accuracy
-- ENHANCE structure and readability without altering medical meaning
-- USE proper medical hierarchy and organization
+⚕️ **CORE OBJECTIVES**
+- Preserve ALL medical accuracy: every drug name, dosage, symptom, diagnosis, sign, and mechanism.
+- Maintain technical medical language — never oversimplify or alter meaning.
+- Restructure and reformat content to enhance clarity, flow, and readability.
+- Ensure professional tone suitable for MBBS-level or higher medical learning.
 
-SPECIFIC IMPROVEMENTS TO MAKE:
+---
 
-1. STRUCTURAL ENHANCEMENT:
-   - Create clear hierarchical headings (H1 for main sections, H2 for subsections, H3 for details)
-   - Group related concepts together logically
-   - Add appropriate spacing and section breaks
-   - Ensure consistent formatting throughout
+### 🩺 STRUCTURAL ENHANCEMENT
+1. Create clear and logical **hierarchical headings**:
+   - Use **<h1>** for main topics
+   - Use **<h2>** for subtopics
+   - Use **<h3>** for finer details or lists
+2. **Combine or rearrange sections** when two headings represent the same or closely related topic.
+3. Group related ideas together logically (e.g., etiology, symptoms, diagnosis, management).
+4. Insert **<hr>** between major sections for visual clarity.
+5. Ensure consistent spacing and indentation throughout.
 
-2. CONTENT OPTIMIZATION:
-   - Remove redundant phrasing while keeping all unique information
-   - Improve flow between related concepts
-   - Add logical transitions between sections
-   - Enhance clarity without simplifying medical content
+---
 
-3. FORMATTING REQUIREMENTS:
-   - Use HTML tags: h1, h2, h3, h4, ul, li, strong, p, hr, br
-   - Apply <strong> tags to key medical terms and important concepts
-   - Use <hr> between major sections
-   - Include appropriate medical emojis (🏥, 💊, ❤️, 🧠, etc.) for visual enhancement
-   - Maintain professional medical tone
-   - Ensure proper spacing with <br> tags
+### 💊 CONTENT OPTIMIZATION
+1. Remove redundant or repetitive text while retaining **all unique information**.
+2. Add smooth **transitions between related sections**.
+3. Maintain or slightly improve **academic tone and logical flow**.
+4. Correct minor inconsistencies or disorganized sequences.
+5. Keep **medical hierarchy** intact: definition → causes → pathophysiology → clinical features → diagnosis → management → complications → prognosis.
 
-4. MEDICAL CONTENT PRESERVATION:
-   - DO NOT remove any medical information, symptoms, treatments, or findings
-   - DO NOT alter dosages, drug names, or clinical values
-   - DO NOT change diagnostic criteria or medical recommendations
-   - DO NOT simplify complex medical concepts
+---
 
-5. ORGANIZATION PRINCIPLES:
-   - Group symptoms together
-   - Organize treatments by category
-   - Structure diagnostic criteria clearly
-   - Separate pathophysiology from clinical presentation
+### 🩸 FORMATTING REQUIREMENTS
+1. Use these HTML tags:
+   - **Headings:** <h1>, <h2>, <h3>, <h4>
+   - **Text:** <p>, <strong>, <br>, <ul>, <li>, <hr>
+2. Highlight important medical concepts, drugs, or keywords with **<strong>**.
+3. Use **appropriate medical emojis** (🏥, 💊, ❤️, 🧠, 🫁, 🦴, 🩸, etc.) to visually enrich the content.
+4. Maintain professional formatting with adequate spacing (<br>).
+5. No markdown, no explanations — **return only the enhanced HTML output**.
 
-Return ONLY the enhanced HTML content with perfect medical formatting.`;
+---
 
+### ✅ OUTPUT REQUIREMENT
+Return **ONLY** the enhanced and formatted HTML content — clean, structured, and ready for web publishing.`;
+      
       const response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
         method: 'POST',
         headers: {
