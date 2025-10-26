@@ -92,21 +92,19 @@ export const NotesEditor = ({ content, onContentChange }: NotesEditorProps) => {
 3. Maintain or slightly improve **academic tone and logical flow**.
 4. Correct minor inconsistencies or disorganized sequences.
 5. Preserve medical hierarchy: **Definition → Causes → Pathophysiology → Clinical Features → Diagnosis → Management → Complications → Prognosis.**
-6. When presenting multiple facts or subpoints, use a **three-level bullet system**
+6. When presenting multiple facts or subpoints, use a **three-level bullet system**.
 
-7. EMOJI USAGE:
-   - H1 headings: Use ❤️, 🩺, 💊, 🧬, 🔬, 🏥 (medical emojis)
-   - H2 headings: Use 🔹, 💪, 💨, 💓, 🩺 (relevant emojis)
-   - Bullet Level 1: 🔹 or 📌
-   - Bullet Level 2: 🔸 or 🧠
-   - Bullet Level 3: ✨ or 💡
-
+7. **EMOJI USAGE:**
+   - **H1 headings:** Use ❤️, 🩺, 💊, 🧬, 🔬, 🏥 (medical emojis)
+   - **H2 headings:** Use 🔹, 💪, 💨, 💓, 🩺 (relevant emojis)
+   - **Bullet Level 1:** 🔹 or 📌
+   - **Bullet Level 2:** 🔸 or 🧠
+   - **Bullet Level 3:** ✨ or 💡
 
 8. Combine **structural emoji hierarchy** with **automatic contextual emojis**:
    - Automatically select relevant emojis based on section keywords or topic meaning.  
-     For Example: 🧬 for "Etiology", 🤒 for "Symptoms", 💊 for "Treatment", ⚠️ for "Complications", etc.
+     Example: 🧬 for "Etiology", 🤒 for "Symptoms", 💊 for "Treatment", ⚠️ for "Complications", etc.
    - Do not require a predefined list; the model should intelligently choose appropriate emojis.
-
 
 ---
 
@@ -129,6 +127,7 @@ Return **ONLY** the enhanced and formatted HTML content — clean, structured, a
 - Automatically assigned contextual emojis.
 - All medical accuracy preserved.
 `;
+
       
       const response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
         method: 'POST',
