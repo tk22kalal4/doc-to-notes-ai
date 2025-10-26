@@ -335,6 +335,7 @@ const Index = () => {
               <NotesEditor
                 content={generatedNotes}
                 onContentChange={setGeneratedNotes}
+                ocrTexts={ocrTexts}
               />
             </div>
           </div>
