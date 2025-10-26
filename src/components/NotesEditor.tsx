@@ -75,9 +75,9 @@ export const NotesEditor = ({ content, onContentChange }: NotesEditorProps) => {
 
 ### 🏥 STRUCTURAL ENHANCEMENT
 1. Create clear and logical **hierarchical headings**:
-   - Use **<h1> 🏥** for main topics (e.g., Asthma, Myocardial Infarction)
-   - Use **<h2> 💊** for subtopics (e.g., Etiology, Pathophysiology)
-   - Use **<h3> 🩸** for finer details (e.g., Symptoms, Diagnosis)
+   - Use **<h1>** for main topics (e.g., Asthma, Myocardial Infarction)
+   - Use **<h2>** for subtopics (e.g., Etiology, Pathophysiology)
+   - Use **<h3>** for finer details (e.g., Symptoms, Diagnosis)
 2. **Combine or rearrange sections** when two headings represent the same or closely related topic.
 3. Group related ideas logically (e.g., etiology, symptoms, diagnosis, management).
 4. Insert **<hr>** between major sections for visual clarity.
@@ -92,29 +92,21 @@ export const NotesEditor = ({ content, onContentChange }: NotesEditorProps) => {
 3. Maintain or slightly improve **academic tone and logical flow**.
 4. Correct minor inconsistencies or disorganized sequences.
 5. Preserve medical hierarchy: **Definition → Causes → Pathophysiology → Clinical Features → Diagnosis → Management → Complications → Prognosis.**
-6. When presenting multiple facts or subpoints, use a **three-level bullet system**:
+6. When presenting multiple facts or subpoints, use a **three-level bullet system**
 
-   **🔹 Level 1 (Major Points):**
-   - Use <ul><li>🔹</li></ul> for major points.
+7. EMOJI USAGE:
+   - H1 headings: Use ❤️, 🩺, 💊, 🧬, 🔬, 🏥 (medical emojis)
+   - H2 headings: Use 🔹, 💪, 💨, 💓, 🩺 (relevant emojis)
+   - Bullet Level 1: 🔹 or 📌
+   - Bullet Level 2: 🔸 or 🧠
+   - Bullet Level 3: ✨ or 💡
 
-   **➤ Level 2 (Supporting Points):**
-   - Nest another <ul><li>➤</li></ul> inside for subpoints.
 
-   **⬩ Level 3 (Detailed Points):**
-   - Use a third-level <ul><li>⬩</li></ul> for examples or details.
-
-7. Combine **structural emoji hierarchy** with **automatic contextual emojis**:
+8. Combine **structural emoji hierarchy** with **automatic contextual emojis**:
    - Automatically select relevant emojis based on section keywords or topic meaning.  
-     Example: 🧬 for "Etiology", 🤒 for "Symptoms", 💊 for "Treatment", ⚠️ for "Complications", etc.
+     For Example: 🧬 for "Etiology", 🤒 for "Symptoms", 💊 for "Treatment", ⚠️ for "Complications", etc.
    - Do not require a predefined list; the model should intelligently choose appropriate emojis.
 
-8. **🧩 Emoji Hierarchy (Structural Levels)**
-   - 🏥 → Main Topics (<h1>)
-   - 💊 → Subtopics (<h2>)
-   - 🩸 → Detailed Subsections (<h3>)
-   - 🔹 → Level 1 bullet
-   - ➤ → Level 2 bullet
-   - ⬩ → Level 3 bullet
 
 ---
 
