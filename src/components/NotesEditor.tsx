@@ -78,9 +78,10 @@ export const NotesEditor = ({ content, onContentChange }: NotesEditorProps) => {
    - Use **<h2>** for subtopics
    - Use **<h3>** for finer details or lists
 2. **Combine or rearrange sections** when two headings represent the same or closely related topic.
-3. Group related ideas together logically (e.g., etiology, symptoms, diagnosis, management).
-4. Insert **<hr>** between major sections for visual clarity.
-5. Ensure consistent spacing and indentation throughout.
+3. Convert long sentances into two or more short bullet points
+4. Group related ideas together logically (e.g., etiology, symptoms, diagnosis, management).
+5. Insert **<hr>** between major sections for visual clarity.
+6. Ensure consistent spacing and indentation throughout.
 
 ---
 
