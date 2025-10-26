@@ -1,3 +1,4 @@
+
 import { useState } from 'react';
 import { Brain, ChevronRight, ChevronLeft, RotateCcw, X, Trophy } from 'lucide-react';
 import { Button } from '@/components/ui/button';
