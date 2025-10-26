@@ -1,22 +1,25 @@
 import { useState, useRef, useEffect } from 'react';
-import { Download, Copy, Edit3, Eye, Sparkles, Undo2, Redo2 } from 'lucide-react';
+import { Download, Copy, Edit3, Eye, Sparkles, Undo2, Redo2, Brain } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useToast } from '@/hooks/use-toast';
 import html2pdf from 'html2pdf.js';
 import { Editor } from '@tinymce/tinymce-react';
+import { MCQGenerator } from '@/components/MCQGenerator';
 
 interface NotesEditorProps {
   content: string;
   onContentChange: (content: string) => void;
+  ocrTexts?: string[];
 }
 
-export const NotesEditor = ({ content, onContentChange }: NotesEditorProps) => {
+export const NotesEditor = ({ content, onContentChange, ocrTexts = [] }: NotesEditorProps) => {
   const [activeTab, setActiveTab] = useState<'preview' | 'edit'>('preview');
   const [isTouchingUp, setIsTouchingUp] = useState(false);
   const [contentHistory, setContentHistory] = useState<string[]>([]);
   const [historyIndex, setHistoryIndex] = useState(-1);
+  const [showMCQ, setShowMCQ] = useState(false);
   const { toast } = useToast();
   const editorRef = useRef<any>(null);
   const historyRef = useRef<{ history: string[]; index: number }>({ history: [], index: -1 });
@@ -396,6 +399,10 @@ Return **ONLY** the enhanced and formatted HTML content — clean, structured, a
     }
   };
 
+  if (showMCQ) {
+    return <MCQGenerator ocrTexts={ocrTexts} onClose={() => setShowMCQ(false)} />;
+  }
+
   return (
     <Card className="h-full shadow-lg">
       <div className="border-b p-4">
@@ -412,6 +419,17 @@ Return **ONLY** the enhanced and formatted HTML content — clean, structured, a
             >
               <Sparkles className="h-4 w-4" />
               {isTouchingUp ? 'Touching up...' : 'Touchup'}
+            </Button>
+            <Button
+              onClick={() => setShowMCQ(true)}
+              variant="outline"
+              size="sm"
+              className="gap-2"
+              disabled={!ocrTexts || ocrTexts.length === 0}
+              data-testid="button-generate-mcqs"
+            >
+              <Brain className="h-4 w-4" />
+              Generate MCQs
             </Button>
             <Button
               onClick={handleUndo}
