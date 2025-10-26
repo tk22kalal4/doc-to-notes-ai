@@ -78,10 +78,10 @@ export const NotesEditor = ({ content, onContentChange }: NotesEditorProps) => {
    - Use **<h2>** for subtopics
    - Use **<h3>** for finer details or lists
 2. **Combine or rearrange sections** when two headings represent the same or closely related topic.
-3. Convert long sentances into two or more short bullet points
-4. Group related ideas together logically (e.g., etiology, symptoms, diagnosis, management).
-5. Insert **<hr>** between major sections for visual clarity.
-6. Ensure consistent spacing and indentation throughout.
+3. Group related ideas together logically (e.g., etiology, symptoms, diagnosis, management).
+4. Insert **<hr>** between major sections for visual clarity.
+5. Ensure consistent spacing and indentation throughout.
+6. **Convert long or complex sentences** into **two or more concise bullet points** for better readability.
 
 ---
 
@@ -91,6 +91,10 @@ export const NotesEditor = ({ content, onContentChange }: NotesEditorProps) => {
 3. Maintain or slightly improve **academic tone and logical flow**.
 4. Correct minor inconsistencies or disorganized sequences.
 5. Keep **medical hierarchy** intact: definition → causes → pathophysiology → clinical features → diagnosis → management → complications → prognosis.
+6. When presenting multiple facts or subpoints, **use a three-level bullet system**:
+   - **Level 1:** <ul> for major points  
+   - **Level 2:** nested <ul> inside for secondary points  
+   - **Level 3:** further nested <ul> for tertiary or detailed explanations  
 
 ---
 
@@ -101,7 +105,8 @@ export const NotesEditor = ({ content, onContentChange }: NotesEditorProps) => {
 2. Highlight important medical concepts, drugs, or keywords with **<strong>**.
 3. Use **appropriate medical emojis** (🏥, 💊, ❤️, 🧠, 🫁, 🦴, 🩸, etc.) to visually enrich the content.
 4. Maintain professional formatting with adequate spacing (<br>).
-5. No markdown, no explanations — **return only the enhanced HTML output**.
+5. Use **three-level bullet hierarchy** when needed to show sub-details logically.
+6. No markdown, no explanations — **return only the enhanced HTML output**.
 
 ---
 
