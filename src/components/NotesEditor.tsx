@@ -518,14 +518,46 @@ Return **ONLY** the enhanced and formatted HTML content — clean, structured, a
                   'bold italic forecolor | alignleft aligncenter ' +
                   'alignright alignjustify | bullist numlist outdent indent | ' +
                   'removeformat | image media table | help',
-                content_style: 'body { font-family:Arial,sans-serif; font-size:14px } img { max-width: 100%; height: auto; }',
+                content_style: `
+                  body { 
+                    font-family: Arial, sans-serif; 
+                    font-size: 14px;
+                    line-height: 1.6;
+                  } 
+                  img { 
+                    max-width: 100%; 
+                    height: auto;
+                    display: block;
+                    margin: 10px 0;
+                    cursor: pointer;
+                  }
+                  img:hover {
+                    opacity: 0.9;
+                    outline: 2px solid #0891b2;
+                  }
+                `,
                 placeholder: 'Your generated notes will appear here. Use the toolbar to format text, add images, and customize your notes...',
+                
+                // Image settings
                 image_advtab: true,
                 image_title: true,
+                image_description: true,
+                image_dimensions: true,
+                image_uploadtab: true,
+                
+                // Enable image resizing in editor
+                object_resizing: true,
+                resize_img_proportional: true,
+                
+                // Enable paste images
+                paste_data_images: true,
+                
+                // Auto upload settings
                 automatic_uploads: true,
                 file_picker_types: 'image',
-                image_uploadtab: true,
                 images_reuse_filename: true,
+                
+                // Convert all images to base64
                 images_upload_handler: (blobInfo: any) => {
                   return new Promise((resolve, reject) => {
                     const reader = new FileReader();
@@ -540,6 +572,8 @@ Return **ONLY** the enhanced and formatted HTML content — clean, structured, a
                     reader.readAsDataURL(blobInfo.blob());
                   });
                 },
+                
+                // File picker for gallery selection
                 file_picker_callback: (callback: any, _value: any, meta: any) => {
                   if (meta.filetype === 'image') {
                     const input = document.createElement('input');
@@ -551,7 +585,10 @@ Return **ONLY** the enhanced and formatted HTML content — clean, structured, a
                         const reader = new FileReader();
                         reader.onload = () => {
                           if (typeof reader.result === 'string') {
-                            callback(reader.result, { alt: file.name });
+                            callback(reader.result, { 
+                              alt: file.name,
+                              title: file.name
+                            });
                           }
                         };
                         reader.readAsDataURL(file);
@@ -559,7 +596,12 @@ Return **ONLY** the enhanced and formatted HTML content — clean, structured, a
                     };
                     input.click();
                   }
-                }
+                },
+                
+                // Ensure base64 images are properly handled
+                convert_urls: false,
+                relative_urls: false,
+                remove_script_host: false
               }}
             />
           </div>
