@@ -518,8 +518,48 @@ Return **ONLY** the enhanced and formatted HTML content — clean, structured, a
                   'bold italic forecolor | alignleft aligncenter ' +
                   'alignright alignjustify | bullist numlist outdent indent | ' +
                   'removeformat | image media table | help',
-                content_style: 'body { font-family:Arial,sans-serif; font-size:14px }',
-                placeholder: 'Your generated notes will appear here. Use the toolbar to format text, add images, and customize your notes...'
+                content_style: 'body { font-family:Arial,sans-serif; font-size:14px } img { max-width: 100%; height: auto; }',
+                placeholder: 'Your generated notes will appear here. Use the toolbar to format text, add images, and customize your notes...',
+                image_advtab: true,
+                image_title: true,
+                automatic_uploads: true,
+                file_picker_types: 'image',
+                image_uploadtab: true,
+                images_reuse_filename: true,
+                images_upload_handler: (blobInfo: any) => {
+                  return new Promise((resolve, reject) => {
+                    const reader = new FileReader();
+                    reader.onloadend = () => {
+                      if (typeof reader.result === 'string') {
+                        resolve(reader.result);
+                      } else {
+                        reject('Failed to convert image to base64');
+                      }
+                    };
+                    reader.onerror = () => reject('Failed to read image file');
+                    reader.readAsDataURL(blobInfo.blob());
+                  });
+                },
+                file_picker_callback: (callback: any, _value: any, meta: any) => {
+                  if (meta.filetype === 'image') {
+                    const input = document.createElement('input');
+                    input.setAttribute('type', 'file');
+                    input.setAttribute('accept', 'image/*');
+                    input.onchange = function(this: HTMLInputElement) {
+                      const file = this.files?.[0];
+                      if (file) {
+                        const reader = new FileReader();
+                        reader.onload = () => {
+                          if (typeof reader.result === 'string') {
+                            callback(reader.result, { alt: file.name });
+                          }
+                        };
+                        reader.readAsDataURL(file);
+                      }
+                    };
+                    input.click();
+                  }
+                }
               }}
             />
           </div>
