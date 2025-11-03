@@ -114,6 +114,13 @@ All colors MUST be HSL.
   }
 }
 
+/* Allow rotation on tablets and desktops */
+@media screen and (min-width: 641px) {
+  html {
+    transform-origin: center center;
+  }
+}
+
 /* Custom styles for medical notes HTML preview */
 .notes-preview {
   line-height: 1.8;
@@ -312,29 +319,25 @@ All colors MUST be HSL.
 }
 
 /* PWA Orientation & Responsive Layout */
-@media (max-width: 640px) {
-  /* Phone devices - optimize for portrait */
-  @media (orientation: landscape) {
-    body {
-      font-size: 14px;
-    }
-    
-    .notes-preview h1 {
-      font-size: 1.5rem;
-    }
-    
-    .notes-preview h2 {
-      font-size: 1.25rem;
-    }
+/* Phone devices in landscape - optimize for smaller screens */
+@media (max-width: 640px) and (orientation: landscape) {
+  body {
+    font-size: 14px;
+  }
+  
+  .notes-preview h1 {
+    font-size: 1.5rem;
+  }
+  
+  .notes-preview h2 {
+    font-size: 1.25rem;
   }
 }
 
-@media (min-width: 641px) and (max-width: 1024px) {
-  /* Tablet devices - optimize for landscape */
-  @media (orientation: portrait) {
-    body {
-      font-size: 15px;
-    }
+/* Tablet devices in portrait - optimize for reading */
+@media (min-width: 641px) and (max-width: 1024px) and (orientation: portrait) {
+  body {
+    font-size: 15px;
   }
 }
 
@@ -346,13 +349,14 @@ All colors MUST be HSL.
   }
 }
 
-/* Full screen PWA experience */
+/* Full screen PWA experience - Allow proper rotation */
 html,
 body,
 #root {
   width: 100%;
-  height: 100%;
+  min-height: 100%;
   overflow-x: hidden;
+  overflow-y: auto;
 }
 
 /* Landscape-friendly reading layout for notes on tablets/desktops */
