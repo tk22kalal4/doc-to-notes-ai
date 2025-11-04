@@ -81,7 +81,7 @@ export const NotesEditor = ({ content, onContentChange, ocrTexts = [] }: NotesEd
 1. Before the full structured explanation, include a **"MAIN HEADINGS (for quick recall)"** section **only if** the topic contains multiple major categories (e.g., types, causes, complications, classifications, etc.).
    - Format example:
      ```
-     ## 🧠 MAIN HEADINGS (for quick recall)
+     🧠 MAIN HEADINGS (for quick recall)
      1. [Heading 1]
      2. [Heading 2]
      3. [Heading 3]
@@ -93,7 +93,7 @@ export const NotesEditor = ({ content, onContentChange, ocrTexts = [] }: NotesEd
 2. If any **main heading** (e.g., “Cardiac Complications”) contains **multiple significant subheadings or long subsections**, then add a **“QUICK SUB-RECAP”** list immediately **under that main heading**.
    - Format example:
      ```
-     ### 🧩 Quick Sub-Recap
+     🧩 Quick Sub-Recap
      - (A) Atrial Changes
      - (B) Right Heart Changes
      ```
