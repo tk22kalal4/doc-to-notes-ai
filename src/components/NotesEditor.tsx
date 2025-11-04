@@ -76,6 +76,32 @@ export const NotesEditor = ({ content, onContentChange, ocrTexts = [] }: NotesEd
 
 ---
 
+### 🧠 **MEMORY-ANCHOR ENHANCEMENT (MAIN HEADINGS & SUB-RECAPS)**
+1. Before the full structured explanation, include a **"MAIN HEADINGS (for quick recall)"** section **only if** the topic contains multiple major categories (e.g., types, causes, complications, classifications, etc.).
+   - Format example:
+     ```
+     ## 🧠 MAIN HEADINGS (for quick recall)
+     1. [Heading 1]
+     2. [Heading 2]
+     3. [Heading 3]
+     ...
+     ```
+   - Place this section **before** the detailed explanation.
+   - Purpose: helps readers visualize and memorize the topic structure at a glance.
+
+2. If any **main heading** (e.g., “Cardiac Complications”) contains **multiple significant subheadings or long subsections**, then add a **“QUICK SUB-RECAP”** list immediately **under that main heading**.
+   - Format example:
+     ```
+     ### 🧩 Quick Sub-Recap
+     - (A) Atrial Changes
+     - (B) Right Heart Changes
+     ```
+   - This list should appear **just below the main heading** and **before** the detailed text for that section.
+   - Include it **only when** subheadings are extensive or have large text blocks.
+   - This ensures hierarchical clarity and faster mental mapping.
+
+---
+
 ### 🏥 STRUCTURAL ENHANCEMENT
 1. Create clear and logical **hierarchical headings**:
    - Use **<h1>** for main topics (e.g., Asthma, Myocardial Infarction)
