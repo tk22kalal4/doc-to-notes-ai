@@ -1,10 +1,12 @@
 import { useState, useRef, useEffect } from 'react';
-import { MessageCircle, X, Maximize2, Minimize2, Send, Loader2, ChevronDown, ChevronUp } from 'lucide-react';
+import { MessageCircle, X, Maximize2, Minimize2, Send, Loader2, BookOpen, Sparkles } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card } from '@/components/ui/card';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { useToast } from '@/hooks/use-toast';
+import { Switch } from '@/components/ui/switch';
+import { Label } from '@/components/ui/label';
 
 interface Message {
   role: 'user' | 'assistant';
@@ -15,6 +17,8 @@ interface AIChatbotProps {
   ocrTexts: string[];
 }
 
+type ChatbotMode = 'ocr' | 'general';
+
 export const AIChatbot = ({ ocrTexts }: AIChatbotProps) => {
   const [isOpen, setIsOpen] = useState(false);
   const [isFullscreen, setIsFullscreen] = useState(false);
@@ -23,6 +27,7 @@ export const AIChatbot = ({ ocrTexts }: AIChatbotProps) => {
   const [isLoading, setIsLoading] = useState(false);
   const [size, setSize] = useState({ width: 400, height: 500 });
   const [isResizing, setIsResizing] = useState(false);
+  const [mode, setMode] = useState<ChatbotMode>('ocr');
   const chatRef = useRef<HTMLDivElement>(null);
   const resizeRef = useRef<HTMLDivElement>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -59,6 +64,18 @@ export const AIChatbot = ({ ocrTexts }: AIChatbotProps) => {
     }
   }, [isResizing]);
 
+  const handleModeChange = (checked: boolean) => {
+    const newMode = checked ? 'general' : 'ocr';
+    setMode(newMode);
+    setMessages([]);
+    toast({
+      title: `Switched to ${checked ? 'General' : 'OCR'} Mode`,
+      description: checked 
+        ? 'Ask me anything! No restrictions.' 
+        : 'Ask questions about your medical notes.',
+    });
+  };
+
   const sendMessage = async () => {
     if (!input.trim() || isLoading) return;
 
@@ -68,7 +85,8 @@ export const AIChatbot = ({ ocrTexts }: AIChatbotProps) => {
     setIsLoading(true);
 
     try {
-      const systemPrompt = `You are a helpful medical study assistant. A student has studied medical content and now has questions about it. Use the OCR content provided to answer their questions accurately.
+      const systemPrompt = mode === 'ocr' 
+        ? `You are a helpful medical study assistant. A student has studied medical content and now has questions about it. Use the OCR content provided to answer their questions accurately.
 
 CRITICAL FORMATTING RULES - FOLLOW EXACTLY:
 
@@ -130,7 +148,66 @@ EXAMPLE STRUCTURE:
 OCR CONTENT TO REFERENCE:
 ${allContent.slice(0, 15000)}
 
-Answer questions based on this content. If the answer isn't in the content, say so politely and provide general medical knowledge if appropriate.`;
+Answer questions based on this content. If the answer isn't in the content, say so politely and provide general medical knowledge if appropriate.`
+        : `You are a helpful and knowledgeable AI assistant. Answer user questions on any topic with accurate, engaging, and well-formatted responses.
+
+CRITICAL FORMATTING RULES - FOLLOW EXACTLY:
+
+1. STRUCTURE WITH VISUAL ELEMENTS:
+   - Main points: <h3>emoji Main Point</h3>
+   - Subpoints: <h4>emoji Subpoint</h4>
+   - Add <hr> after major sections for visual separation
+   
+2. EMOJI USAGE (ENHANCE RESPONSES):
+   - Use relevant emojis for headings (💡, 🎯, 📚, 🌟, ✨, 🔥, 💫, etc.)
+   - Bullet Level 1: 🔹, 📌, ⭐, or topic-relevant emoji
+   - Bullet Level 2: 🔸, 💡, ✨
+   - Bullet Level 3: ✨, 🧠, 💪
+   - For emphasis: ⭐, ✅, ⚡, 🎉
+
+3. BULLET FORMATTING (CRITICAL):
+   - Each bullet: <li>emoji <strong>Key Term:</strong> clear explanation</li>
+   - Use nested <ul> for sub-points
+   - Add <br> between major bullet groups
+   - Keep explanations clear and engaging
+   
+4. BOLD FORMATTING:
+   - Wrap ALL important terms, names, and concepts in <strong>Term</strong>
+   - Key definitions, technical terms = bold
+   - Numbers, statistics, important values = bold
+
+5. SPACING (VERY IMPORTANT):
+   - <hr> after major sections
+   - <br><br> between different topics
+   - <br> between bullet groups
+   - Use <p> tags for paragraphs with good spacing
+
+6. RESPONSE STYLE:
+   - Provide comprehensive, accurate information
+   - Use clear, engaging language
+   - Include examples when helpful
+   - Be conversational yet informative
+   - Adapt tone to the question type
+   
+EXAMPLE STRUCTURE:
+<h3>💡 Answer to Your Question</h3>
+<p>Here's a comprehensive explanation with <strong>key points</strong> highlighted.</p>
+<hr>
+<h4>🔹 Main Points:</h4>
+<ul>
+  <li>📌 <strong>First Point:</strong> Detailed explanation
+    <ul>
+      <li>🔸 Supporting detail 1</li>
+      <li>🔸 Supporting detail 2</li>
+    </ul>
+  </li>
+  <li>⭐ <strong>Second Point:</strong> Another explanation</li>
+</ul>
+<br>
+<h4>✨ Key Takeaway:</h4>
+<p><strong>Remember:</strong> Concise summary of the main idea.</p>
+
+Answer any question the user asks - no topic restrictions. Provide helpful, accurate, and well-formatted responses.`;
 
       const response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
         method: 'POST',
@@ -217,28 +294,57 @@ Answer questions based on this content. If the answer isn't in the content, say 
       )}
 
       {/* Header */}
-      <div className="flex items-center justify-between p-4 border-b bg-gradient-to-r from-primary/10 to-accent/10">
-        <div className="flex items-center gap-2">
-          <MessageCircle className="h-5 w-5 text-primary" />
-          <h3 className="font-semibold">AI Study Assistant</h3>
+      <div className="border-b bg-gradient-to-r from-primary/10 to-accent/10">
+        <div className="flex items-center justify-between p-4">
+          <div className="flex items-center gap-2">
+            {mode === 'ocr' ? (
+              <BookOpen className="h-5 w-5 text-primary" />
+            ) : (
+              <Sparkles className="h-5 w-5 text-primary" />
+            )}
+            <h3 className="font-semibold">
+              {mode === 'ocr' ? 'AI Study Assistant' : 'AI Chat Assistant'}
+            </h3>
+          </div>
+          <div className="flex items-center gap-2">
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={() => setIsFullscreen(!isFullscreen)}
+              data-testid="button-toggle-fullscreen"
+            >
+              {isFullscreen ? <Minimize2 className="h-4 w-4" /> : <Maximize2 className="h-4 w-4" />}
+            </Button>
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={() => setIsOpen(false)}
+              data-testid="button-close-chatbot"
+            >
+              <X className="h-4 w-4" />
+            </Button>
+          </div>
         </div>
-        <div className="flex items-center gap-2">
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={() => setIsFullscreen(!isFullscreen)}
-            data-testid="button-toggle-fullscreen"
-          >
-            {isFullscreen ? <Minimize2 className="h-4 w-4" /> : <Maximize2 className="h-4 w-4" />}
-          </Button>
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={() => setIsOpen(false)}
-            data-testid="button-close-chatbot"
-          >
-            <X className="h-4 w-4" />
-          </Button>
+        {/* Mode Switcher */}
+        <div className="flex items-center gap-3 px-4 pb-3 border-t pt-3">
+          <div className="flex items-center gap-2">
+            <BookOpen className="h-4 w-4 text-muted-foreground" />
+            <Label htmlFor="mode-switch" className="text-sm cursor-pointer">
+              OCR Mode
+            </Label>
+          </div>
+          <Switch
+            id="mode-switch"
+            checked={mode === 'general'}
+            onCheckedChange={handleModeChange}
+            data-testid="switch-chatbot-mode"
+          />
+          <div className="flex items-center gap-2">
+            <Label htmlFor="mode-switch" className="text-sm cursor-pointer">
+              General Chat
+            </Label>
+            <Sparkles className="h-4 w-4 text-muted-foreground" />
+          </div>
         </div>
       </div>
 
@@ -247,9 +353,21 @@ Answer questions based on this content. If the answer isn't in the content, say 
         <div className="space-y-4">
           {messages.length === 0 && (
             <div className="text-center text-muted-foreground py-8">
-              <MessageCircle className="h-12 w-12 mx-auto mb-3 opacity-50" />
-              <p className="text-sm">Ask me anything about your medical notes!</p>
-              <p className="text-xs mt-2">I'll explain concepts in the easiest way possible 📚</p>
+              {mode === 'ocr' ? (
+                <BookOpen className="h-12 w-12 mx-auto mb-3 opacity-50" />
+              ) : (
+                <Sparkles className="h-12 w-12 mx-auto mb-3 opacity-50" />
+              )}
+              <p className="text-sm">
+                {mode === 'ocr' 
+                  ? 'Ask me anything about your medical notes!' 
+                  : 'Ask me anything - no restrictions!'}
+              </p>
+              <p className="text-xs mt-2">
+                {mode === 'ocr'
+                  ? "I'll explain concepts in the easiest way possible 📚"
+                  : "I'm here to help with any topic you'd like to explore ✨"}
+              </p>
             </div>
           )}
           {messages.map((message, index) => (
@@ -294,7 +412,7 @@ Answer questions based on this content. If the answer isn't in the content, say 
             value={input}
             onChange={(e) => setInput(e.target.value)}
             onKeyPress={handleKeyPress}
-            placeholder="Ask a question about your notes..."
+            placeholder={mode === 'ocr' ? "Ask a question about your notes..." : "Ask me anything..."}
             disabled={isLoading}
             className="flex-1"
             data-testid="input-chat-message"
@@ -309,7 +427,9 @@ Answer questions based on this content. If the answer isn't in the content, say 
           </Button>
         </div>
         <p className="text-xs text-muted-foreground mt-2 text-center">
-          💡 Ask about definitions, explanations, or clarifications
+          {mode === 'ocr'
+            ? '💡 Ask about definitions, explanations, or clarifications'
+            : '✨ Ask anything - I can help with any topic!'}
         </p>
       </div>
     </Card>
