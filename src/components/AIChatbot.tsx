@@ -76,17 +76,9 @@ export const AIChatbot = ({ ocrTexts }: AIChatbotProps) => {
     });
   };
 
-  const sendMessage = async () => {
-    if (!input.trim() || isLoading) return;
-
-    const userMessage: Message = { role: 'user', content: input };
-    setMessages(prev => [...prev, userMessage]);
-    setInput('');
-    setIsLoading(true);
-
-    try {
-      const systemPrompt = mode === 'ocr' 
-        ? `You are a helpful medical study assistant. A student has studied medical content and now has questions about it. Use the OCR content provided to answer their questions accurately.
+  const getSystemPrompt = (currentMode: ChatbotMode) => {
+    if (currentMode === 'ocr') {
+      return `You are a helpful medical study assistant. A student has studied medical content and now has questions about it. Use the OCR content provided to answer their questions accurately.
 
 CRITICAL FORMATTING RULES - FOLLOW EXACTLY:
 
@@ -148,8 +140,9 @@ EXAMPLE STRUCTURE:
 OCR CONTENT TO REFERENCE:
 ${allContent.slice(0, 15000)}
 
-Answer questions based on this content. If the answer isn't in the content, say so politely and provide general medical knowledge if appropriate.`
-        : `You are a helpful and knowledgeable AI assistant. Answer user questions on any topic with accurate, engaging, and well-formatted responses.
+IMPORTANT: Only answer questions based on this OCR content. If the answer isn't in the content, say: "I don't see this specific information in your study notes. Could you provide more context or check if this topic is covered in your materials?" Do not provide general medical knowledge unless it's clearly referenced in the OCR content.`;
+    } else {
+      return `You are a helpful and knowledgeable AI assistant. Answer user questions on any topic with accurate, engaging, and well-formatted responses.
 
 CRITICAL FORMATTING RULES - FOLLOW EXACTLY:
 
@@ -188,7 +181,9 @@ CRITICAL FORMATTING RULES - FOLLOW EXACTLY:
    - Include examples when helpful
    - Be conversational yet informative
    - Adapt tone to the question type
-   
+
+IMPORTANT: You are in GENERAL CHAT mode. Do not reference any OCR content, medical notes, or study materials. Answer based on your general knowledge without any connection to user documents.
+
 EXAMPLE STRUCTURE:
 <h3>💡 Answer to Your Question</h3>
 <p>Here's a comprehensive explanation with <strong>key points</strong> highlighted.</p>
@@ -208,6 +203,19 @@ EXAMPLE STRUCTURE:
 <p><strong>Remember:</strong> Concise summary of the main idea.</p>
 
 Answer any question the user asks - no topic restrictions. Provide helpful, accurate, and well-formatted responses.`;
+    }
+  };
+
+  const sendMessage = async () => {
+    if (!input.trim() || isLoading) return;
+
+    const userMessage: Message = { role: 'user', content: input };
+    setMessages(prev => [...prev, userMessage]);
+    setInput('');
+    setIsLoading(true);
+
+    try {
+      const systemPrompt = getSystemPrompt(mode);
 
       const response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
         method: 'POST',
