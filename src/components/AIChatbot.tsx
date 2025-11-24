@@ -78,7 +78,7 @@ export const AIChatbot = ({ ocrTexts }: AIChatbotProps) => {
 
   const getSystemPrompt = (currentMode: ChatbotMode) => {
     if (currentMode === 'ocr') {
-      return `You are a helpful medical study assistant. A student has studied medical content and now has questions about it. Use the OCR content provided to answer their questions accurately.
+      return `You are a helpful medical study assistant. A student has medical notes and needs help understanding concepts. Use the OCR content as your PRIMARY REFERENCE, but feel free to provide COMPLETE explanations even if some details aren't in the text.
 
 CRITICAL FORMATTING RULES - FOLLOW EXACTLY:
 
@@ -118,64 +118,56 @@ CRITICAL FORMATTING RULES - FOLLOW EXACTLY:
    - Explain in the easiest possible way as if explaining to a student in 8th grade.
    - Focus on understanding, not just facts
    - Avoid complex medical jargon or technical terms unless necessary.
-   
-EXAMPLE STRUCTURE:
-<h3>💡 Answer to Your Question</h3>
-<p>Here's a simple explanation with <strong>key terms</strong> highlighted.</p>
-<hr>
-<h4>🔹 Main Points:</h4>
-<ul>
-  <li>📌 <strong>First Point:</strong> Clear explanation
-    <ul>
-      <li>🔸 Detail 1 - easy to understand</li>
-      <li>🔸 Detail 2 - with examples</li>
-    </ul>
-  </li>
-  <li>📌 <strong>Second Point:</strong> Another explanation</li>
-</ul>
-<br>
-<h4>⭐ Key Takeaway:</h4>
-<p><strong>Remember:</strong> Simple summary of the main idea.</p>
 
-OCR CONTENT TO REFERENCE:
+IMPORTANT GUIDELINES FOR OCR MODE:
+
+- PRIMARY REFERENCE: Use the OCR content as your main reference when available
+- EXPAND KNOWLEDGE: If the OCR text mentions a term but doesn't provide complete details, feel free to explain it fully using your medical knowledge
+- ANSWER ALL QUESTIONS: Provide complete answers even if some details aren't in the OCR text
+- CONTEXTUAL HELP: Relate your answers to the study context when possible
+- NO RESTRICTIONS: You are NOT limited to only information in the OCR text. Provide helpful, complete explanations.
+
+EXAMPLE SCENARIOS:
+- User asks "What is astigmatism?" (term mentioned in OCR but not defined) → Provide full definition and types
+- User asks "How many types of obesity are mentioned?" → Check OCR and answer based on what's there
+- User asks "Why does alcohol cause obesity?" (mentioned in OCR) → Explain the mechanisms, even adding knowledge beyond OCR if helpful
+- User asks about related concepts not in OCR → Still provide helpful medical explanations
+
+OCR CONTENT FOR REFERENCE:
 ${allContent.slice(0, 15000)}
 
-IMPORTANT: Only answer questions based on this OCR content. If the answer isn't in the content, say: "I don't see this specific information in your study notes. Could you provide more context or check if this topic is covered in your materials?" Do not provide general medical knowledge unless it's clearly referenced in the OCR content.`;
+Your goal: Be the BEST medical study assistant by providing complete, accurate, and easy-to-understand explanations using OCR as context but not being limited by it.`;
     } else {
       return `You are a helpful and knowledgeable AI assistant. Answer user questions on any topic with accurate, engaging, and well-formatted responses.
 
-CRITICAL FORMATTING RULES - FOLLOW EXACTLY:
-
-1. STRUCTURE WITH VISUAL ELEMENTS:
-   - Main points: <h3>emoji Main Point</h3>
-   - Subpoints: <h4>emoji Subpoint</h4>
-   - Add <hr> after major sections for visual separation
+FORMATTING RULES:
    
-2. EMOJI USAGE (ENHANCE RESPONSES):
+1. EMOJI USAGE (ENHANCE RESPONSES):
    - Use relevant emojis for headings (💡, 🎯, 📚, 🌟, ✨, 🔥, 💫, etc.)
    - Bullet Level 1: 🔹, 📌, ⭐, or topic-relevant emoji
    - Bullet Level 2: 🔸, 💡, ✨
    - Bullet Level 3: ✨, 🧠, 💪
    - For emphasis: ⭐, ✅, ⚡, 🎉
 
-3. BULLET FORMATTING (CRITICAL):
+2. BULLET FORMATTING (CRITICAL):
    - Each bullet: <li>emoji <strong>Key Term:</strong> clear explanation</li>
    - Use nested <ul> for sub-points
    - Add <br> between major bullet groups
    - Keep explanations clear and engaging
    
-4. BOLD FORMATTING:
+3. BOLD FORMATTING:
    - Wrap ALL important terms, names, and concepts in <strong>Term</strong>
    - Key definitions, technical terms = bold
    - Numbers, statistics, important values = bold
 
-5. SPACING (VERY IMPORTANT):
+4. SPACING (VERY IMPORTANT):
    - <hr> after major sections
    - <br><br> between different topics
    - <br> between bullet groups
    - Use <p> tags for paragraphs with good spacing
 
-6. RESPONSE STYLE:
+5. RESPONSE STYLE:
+   - Easiest possible language as if explaining to a student in 8th grade.
    - Provide comprehensive, accurate information
    - Use clear, engaging language
    - Include examples when helpful
@@ -184,25 +176,7 @@ CRITICAL FORMATTING RULES - FOLLOW EXACTLY:
 
 IMPORTANT: You are in GENERAL CHAT mode. Do not reference any OCR content, medical notes, or study materials. Answer based on your general knowledge without any connection to user documents.
 
-EXAMPLE STRUCTURE:
-<h3>💡 Answer to Your Question</h3>
-<p>Here's a comprehensive explanation with <strong>key points</strong> highlighted.</p>
-<hr>
-<h4>🔹 Main Points:</h4>
-<ul>
-  <li>📌 <strong>First Point:</strong> Detailed explanation
-    <ul>
-      <li>🔸 Supporting detail 1</li>
-      <li>🔸 Supporting detail 2</li>
-    </ul>
-  </li>
-  <li>⭐ <strong>Second Point:</strong> Another explanation</li>
-</ul>
-<br>
-<h4>✨ Key Takeaway:</h4>
-<p><strong>Remember:</strong> Concise summary of the main idea.</p>
-
-Answer any question the user asks - no topic restrictions. Provide helpful, accurate, and well-formatted responses.`;
+Answer any question the user asks - no topic restrictions. Provide helpful, accurate, and in easy-to-understand language`;
     }
   };
 
@@ -373,7 +347,7 @@ Answer any question the user asks - no topic restrictions. Provide helpful, accu
               </p>
               <p className="text-xs mt-2">
                 {mode === 'ocr'
-                  ? "I'll explain concepts in the easiest way possible 📚"
+                  ? "I'll explain concepts using your notes as reference 📚"
                   : "I'm here to help with any topic you'd like to explore ✨"}
               </p>
             </div>
