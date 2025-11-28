@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from 'react';
 import { Sparkles, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -139,7 +138,7 @@ Convert this OCR text into easy language beautifully formatted medical notes wit
             'Authorization': `Bearer ${import.meta.env.VITE_GROQ_API_KEY}`
           },
           body: JSON.stringify({
-            model: 'meta-llama/llama-guard-4-12b',
+            model: 'meta-llama/llama-4-scout-17b-16e-instruct',
             messages: [
               { role: 'system', content: systemPrompt },
               { role: 'user', content: ocrTexts[i] }
