@@ -154,7 +154,7 @@ Return **ONLY** the enhanced and formatted HTML content — clean, structured, a
         },
         body: JSON.stringify({
           // DIFFERENT MODEL FOR TOUCHUP
-          model: 'openai/gpt-oss-20b',
+          model: 'meta-llama/llama-4-scout-17b-16e-instruct',
           messages: [
             { role: 'system', content: touchupSystemPrompt },
             { role: 'user', content: `Please enhance and format these medical notes while preserving all medical accuracy:\n\n${currentContent}` }
