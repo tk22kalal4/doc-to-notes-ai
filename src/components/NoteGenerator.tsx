@@ -138,7 +138,7 @@ Convert this OCR text into easy language beautifully formatted medical notes wit
             'Authorization': `Bearer ${import.meta.env.VITE_GROQ_API_KEY}`
           },
           body: JSON.stringify({
-            model: 'meta-llama/llama-4-scout-17b-16e-instruct',
+            model: 'meta-llama/llama-4-maverick-17b-128e-instruct',
             messages: [
               { role: 'system', content: systemPrompt },
               { role: 'user', content: ocrTexts[i] }
