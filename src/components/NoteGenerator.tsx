@@ -129,7 +129,7 @@ EXAMPLE STRUCTURE:
 
 ${contextPrompt}
 
-Convert this OCR text into easy language beautifully formatted medical notes with visual separators:`;
+Convert this OCR text into easiest language beautifully formatted medical notes with visual separators:`;
 
         const response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
           method: 'POST',
@@ -138,12 +138,12 @@ Convert this OCR text into easy language beautifully formatted medical notes wit
             'Authorization': `Bearer ${import.meta.env.VITE_GROQ_API_KEY}`
           },
           body: JSON.stringify({
-            model: 'openai/gpt-oss-120b',
+            model: 'meta-llama/llama-4-scout-17b-16e-instruct',
             messages: [
               { role: 'system', content: systemPrompt },
               { role: 'user', content: ocrTexts[i] }
             ],
-            temperature: 0.7,
+            temperature: 0.9,
             max_tokens: 2048
           })
         });
