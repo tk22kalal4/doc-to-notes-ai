@@ -249,7 +249,7 @@ Answer any question the user asks - no topic restrictions. Provide helpful, accu
             ...messages.map(m => ({ role: m.role, content: m.content })),
             { role: 'user', content: input }
           ],
-          temperature: 0.7,
+          temperature: 1,
           max_tokens: 1500
         })
       });
