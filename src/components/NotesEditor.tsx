@@ -1,3 +1,4 @@
+
 import { useState, useRef, useEffect } from 'react';
 import { Download, Copy, Edit3, Eye, Sparkles, Undo2, Redo2, Brain } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -154,7 +155,7 @@ Return **ONLY** the enhanced and formatted HTML content — clean, structured, a
         },
         body: JSON.stringify({
           // DIFFERENT MODEL FOR TOUCHUP
-          model: 'meta-llama/llama-4-scout-17b-16e-instruct',
+          model: 'llama-3.3-70b-versatile',
           messages: [
             { role: 'system', content: touchupSystemPrompt },
             { role: 'user', content: `Please enhance and format these medical notes while preserving all medical accuracy:\n\n${currentContent}` }
