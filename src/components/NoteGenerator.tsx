@@ -139,7 +139,7 @@ Convert this OCR text into easiest language beautifully formatted medical notes 
             'Authorization': `Bearer ${import.meta.env.VITE_GROQ_API_KEY}`
           },
           body: JSON.stringify({
-            model: 'meta-llama/llama-4-scout-17b-16e-instruct',
+            model: 'qwen/qwen3-32b',
             messages: [
               { role: 'system', content: systemPrompt },
               { role: 'user', content: ocrTexts[i] }
