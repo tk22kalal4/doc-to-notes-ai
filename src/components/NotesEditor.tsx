@@ -1,13 +1,16 @@
-
-import { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { Download, Copy, Edit3, Eye, Sparkles, Undo2, Redo2, Brain } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useToast } from '@/hooks/use-toast';
-import html2pdf from 'html2pdf.js';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 import { Editor } from '@tinymce/tinymce-react';
 import { MCQGenerator } from '@/components/MCQGenerator';
+import { Document, Packer, Paragraph, TextRun, HeadingLevel, AlignmentType } from 'docx';
+import { saveAs } from 'file-saver';
 
 interface NotesEditorProps {
   content: string;
@@ -21,6 +24,8 @@ export const NotesEditor = ({ content, onContentChange, ocrTexts = [] }: NotesEd
   const [contentHistory, setContentHistory] = useState<string[]>([]);
   const [historyIndex, setHistoryIndex] = useState(-1);
   const [showMCQ, setShowMCQ] = useState(false);
+  const [showDownloadDialog, setShowDownloadDialog] = useState(false);
+  const [downloadFilename, setDownloadFilename] = useState('medical-notes');
   const { toast } = useToast();
   const editorRef = useRef<any>(null);
   const historyRef = useRef<{ history: string[]; index: number }>({ history: [], index: -1 });
@@ -225,166 +230,181 @@ Return **ONLY** the enhanced and formatted HTML content — clean, structured, a
   };
 
   const handleDownload = () => {
-    const element = document.createElement('div');
-    element.innerHTML = content;
-    
-    // Apply comprehensive styling to match the preview exactly
-    const styles = `
-      <style>
-        * {
-          margin: 0;
-          padding: 0;
-          box-sizing: border-box;
-        }
-        
-        body {
-          font-family: Arial, sans-serif;
-          line-height: 1.8;
-          color: #1a1a1a;
-          padding: 20px;
-        }
-        
-        h1 {
-          font-size: 1.875rem;
-          font-weight: 700;
-          margin-top: 2rem;
-          margin-bottom: 1rem;
-          color: #0891b2;
-          line-height: 1.3;
-          display: flex;
-          align-items: center;
-          gap: 0.5rem;
-        }
-        
-        h2 {
-          font-size: 1.5rem;
-          font-weight: 600;
-          margin-top: 1.5rem;
-          margin-bottom: 0.75rem;
-          color: #9333ea;
-          line-height: 1.4;
-          display: flex;
-          align-items: center;
-          gap: 0.5rem;
-        }
-        
-        h3 {
-          font-size: 1.25rem;
-          font-weight: 600;
-          margin-top: 1.25rem;
-          margin-bottom: 0.5rem;
-          color: #1a1a1a;
-          line-height: 1.4;
-          display: flex;
-          align-items: center;
-          gap: 0.5rem;
-        }
-        
-        h4 {
-          font-size: 1.125rem;
-          font-weight: 600;
-          margin-top: 1rem;
-          margin-bottom: 0.5rem;
-          color: #1a1a1a;
-          line-height: 1.4;
-          display: flex;
-          align-items: center;
-          gap: 0.5rem;
-        }
-        
-        ul {
-          margin-top: 0.75rem;
-          margin-bottom: 0.75rem;
-          padding-left: 1.5rem;
-          list-style-type: none;
-        }
-        
-        ul ul {
-          margin-top: 0.5rem;
-          margin-bottom: 0.5rem;
-          padding-left: 2rem;
-        }
-        
-        ul ul ul {
-          margin-top: 0.25rem;
-          margin-bottom: 0.25rem;
-          padding-left: 2rem;
-        }
-        
-        li {
-          margin-bottom: 0.5rem;
-          line-height: 1.8;
-        }
-        
-        strong {
-          font-weight: 600;
-          color: #1a1a1a;
-        }
-        
-        p {
-          margin-top: 0.75rem;
-          margin-bottom: 0.75rem;
-          line-height: 1.8;
-        }
-        
-        hr {
-          margin-top: 1.5rem;
-          margin-bottom: 1.5rem;
-          border: 0;
-          border-top: 2px solid #e5e7eb;
-          opacity: 0.6;
-        }
-        
-        br {
-          display: block;
-          content: "";
-          margin-top: 0.5rem;
-        }
-        
-        table {
-          width: 100%;
-          border-collapse: collapse;
-          margin-top: 1rem;
-          margin-bottom: 1rem;
-        }
-        
-        table th,
-        table td {
-          border: 1px solid #e5e7eb;
-          padding: 0.5rem;
-          text-align: left;
-        }
-        
-        table th {
-          background-color: #f3f4f6;
-          font-weight: 600;
-        }
+    setShowDownloadDialog(true);
+  };
 
-        img {
-          max-width: 100%;
-          height: auto;
-          margin: 1rem 0;
+  const parseHtmlToDocxElements = (htmlContent: string) => {
+    const parser = new DOMParser();
+    const doc = parser.parseFromString(htmlContent, 'text/html');
+    const elements: (typeof Paragraph)[] = [];
+
+    const processNode = (node: Node, depth: number = 0): (typeof Paragraph)[] => {
+      const result: any[] = [];
+      
+      if (node.nodeType === Node.TEXT_NODE) {
+        const text = node.textContent?.trim();
+        if (text) {
+          result.push(new Paragraph({
+            children: [new TextRun({ text, size: 24 })],
+          }));
         }
-      </style>
-    `;
-    
-    const wrapper = document.createElement('div');
-    wrapper.innerHTML = styles + element.outerHTML;
-    
-    const opt = {
-      margin: [10, 10, 10, 10] as [number, number, number, number],
-      filename: 'medical-notes.pdf',
-      image: { type: 'jpeg' as const, quality: 0.98 },
-      html2canvas: { scale: 2, useCORS: true, letterRendering: true },
-      jsPDF: { unit: 'mm' as const, format: 'a4' as const, orientation: 'portrait' as const }
+        return result;
+      }
+
+      if (node.nodeType === Node.ELEMENT_NODE) {
+        const element = node as Element;
+        const tagName = element.tagName.toLowerCase();
+        const textContent = element.textContent?.trim() || '';
+
+        switch (tagName) {
+          case 'h1':
+            result.push(new Paragraph({
+              children: [new TextRun({ text: textContent, bold: true, size: 36, color: '0891b2' })],
+              heading: HeadingLevel.HEADING_1,
+              spacing: { before: 400, after: 200 },
+            }));
+            break;
+          case 'h2':
+            result.push(new Paragraph({
+              children: [new TextRun({ text: textContent, bold: true, size: 32, color: '9333ea' })],
+              heading: HeadingLevel.HEADING_2,
+              spacing: { before: 300, after: 150 },
+            }));
+            break;
+          case 'h3':
+            result.push(new Paragraph({
+              children: [new TextRun({ text: textContent, bold: true, size: 28 })],
+              heading: HeadingLevel.HEADING_3,
+              spacing: { before: 200, after: 100 },
+            }));
+            break;
+          case 'h4':
+            result.push(new Paragraph({
+              children: [new TextRun({ text: textContent, bold: true, size: 26 })],
+              heading: HeadingLevel.HEADING_4,
+              spacing: { before: 150, after: 75 },
+            }));
+            break;
+          case 'p':
+            const runs: (typeof TextRun)[] = [];
+            element.childNodes.forEach((child) => {
+              if (child.nodeType === Node.TEXT_NODE) {
+                const t = child.textContent || '';
+                if (t) runs.push(new TextRun({ text: t, size: 24 }) as any);
+              } else if (child.nodeType === Node.ELEMENT_NODE) {
+                const el = child as Element;
+                const ct = el.textContent || '';
+                if (el.tagName.toLowerCase() === 'strong' || el.tagName.toLowerCase() === 'b') {
+                  runs.push(new TextRun({ text: ct, bold: true, size: 24 }) as any);
+                } else if (el.tagName.toLowerCase() === 'em' || el.tagName.toLowerCase() === 'i') {
+                  runs.push(new TextRun({ text: ct, italics: true, size: 24 }) as any);
+                } else {
+                  runs.push(new TextRun({ text: ct, size: 24 }) as any);
+                }
+              }
+            });
+            if (runs.length > 0) {
+              result.push(new Paragraph({
+                children: runs as any,
+                spacing: { before: 100, after: 100 },
+              }));
+            }
+            break;
+          case 'ul':
+          case 'ol':
+            element.querySelectorAll(':scope > li').forEach((li, idx) => {
+              const bulletText = tagName === 'ol' ? `${idx + 1}. ` : '• ';
+              const liRuns: any[] = [];
+              const indent = depth * 720;
+              
+              li.childNodes.forEach((child) => {
+                if (child.nodeType === Node.TEXT_NODE) {
+                  const t = child.textContent?.trim() || '';
+                  if (t) liRuns.push(new TextRun({ text: t, size: 24 }));
+                } else if (child.nodeType === Node.ELEMENT_NODE) {
+                  const el = child as Element;
+                  if (el.tagName.toLowerCase() === 'ul' || el.tagName.toLowerCase() === 'ol') {
+                    return;
+                  }
+                  const ct = el.textContent || '';
+                  if (el.tagName.toLowerCase() === 'strong' || el.tagName.toLowerCase() === 'b') {
+                    liRuns.push(new TextRun({ text: ct, bold: true, size: 24 }));
+                  } else {
+                    liRuns.push(new TextRun({ text: ct, size: 24 }));
+                  }
+                }
+              });
+              
+              if (liRuns.length > 0) {
+                result.push(new Paragraph({
+                  children: [new TextRun({ text: bulletText, size: 24 }), ...liRuns] as any,
+                  indent: { left: indent + 360 },
+                  spacing: { before: 50, after: 50 },
+                }));
+              }
+
+              li.querySelectorAll(':scope > ul, :scope > ol').forEach((nestedList) => {
+                result.push(...processNode(nestedList, depth + 1));
+              });
+            });
+            break;
+          case 'hr':
+            result.push(new Paragraph({
+              children: [new TextRun({ text: '─'.repeat(50), size: 24, color: 'cccccc' })],
+              spacing: { before: 200, after: 200 },
+              alignment: AlignmentType.CENTER,
+            }));
+            break;
+          case 'br':
+            result.push(new Paragraph({ children: [] }));
+            break;
+          default:
+            element.childNodes.forEach((child) => {
+              result.push(...processNode(child, depth));
+            });
+        }
+      }
+
+      return result;
     };
 
-    html2pdf().set(opt).from(wrapper).save().then(() => {
+    doc.body.childNodes.forEach((child) => {
+      elements.push(...processNode(child) as any);
+    });
+
+    return elements;
+  };
+
+  const downloadAsDocx = async () => {
+    try {
+      const docElements = parseHtmlToDocxElements(content);
+      
+      const doc = new Document({
+        sections: [{
+          properties: {},
+          children: docElements as any,
+        }],
+      });
+
+      const blob = await Packer.toBlob(doc);
+      const filename = downloadFilename.trim() || 'medical-notes';
+      saveAs(blob, `${filename}.docx`);
+      
+      setShowDownloadDialog(false);
+      setDownloadFilename('medical-notes');
+      
       toast({
         title: 'Download Complete',
-        description: 'Your notes have been downloaded as a PDF file.'
+        description: 'Your notes have been downloaded as an editable Word document.',
       });
-    });
+    } catch (error) {
+      console.error('Download error:', error);
+      toast({
+        title: 'Download Failed',
+        description: 'Failed to create the document. Please try again.',
+        variant: 'destructive',
+      });
+    }
   };
 
   const handleCopy = async () => {
@@ -408,78 +428,113 @@ Return **ONLY** the enhanced and formatted HTML content — clean, structured, a
   }
 
   return (
-    <Card className="h-full shadow-lg">
-      <div className="border-b p-4">
-        <div className="flex items-center justify-between">
-          <h3 className="font-semibold text-foreground">Medical Notes</h3>
-          <div className="flex gap-2">
-            <Button
-              onClick={handleTouchup}
-              variant="outline"
-              size="sm"
-              className="gap-2"
-              disabled={isTouchingUp || !content}
-              data-testid="button-touchup-notes"
-            >
-              <Sparkles className="h-4 w-4" />
-              {isTouchingUp ? 'Touching up...' : 'Touchup'}
+    <>
+      <Dialog open={showDownloadDialog} onOpenChange={setShowDownloadDialog}>
+        <DialogContent className="sm:max-w-[425px]">
+          <DialogHeader>
+            <DialogTitle>Download Notes</DialogTitle>
+          </DialogHeader>
+          <div className="grid gap-4 py-4">
+            <div className="grid gap-2">
+              <Label htmlFor="filename">File Name</Label>
+              <Input
+                id="filename"
+                value={downloadFilename}
+                onChange={(e) => setDownloadFilename(e.target.value)}
+                placeholder="Enter file name"
+                data-testid="input-download-filename"
+              />
+              <p className="text-sm text-muted-foreground">
+                The file will be saved as: {downloadFilename || 'medical-notes'}.docx
+              </p>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowDownloadDialog(false)} data-testid="button-cancel-download">
+              Cancel
             </Button>
-            <Button
-              onClick={() => setShowMCQ(true)}
-              variant="outline"
-              size="sm"
-              className="gap-2"
-              disabled={!ocrTexts || ocrTexts.length === 0}
-              data-testid="button-generate-mcqs"
-            >
-              <Brain className="h-4 w-4" />
-              Generate MCQs
-            </Button>
-            <Button
-              onClick={handleUndo}
-              variant="outline"
-              size="sm"
-              className="gap-2"
-              disabled={historyIndex <= 0}
-              data-testid="button-undo-touchup"
-            >
-              <Undo2 className="h-4 w-4" />
-              Undo
-            </Button>
-            <Button
-              onClick={handleRedo}
-              variant="outline"
-              size="sm"
-              className="gap-2"
-              disabled={historyIndex >= contentHistory.length - 1}
-              data-testid="button-redo-touchup"
-            >
-              <Redo2 className="h-4 w-4" />
-              Redo
-            </Button>
-            <Button
-              onClick={handleCopy}
-              variant="outline"
-              size="sm"
-              className="gap-2"
-              data-testid="button-copy-notes"
-            >
-              <Copy className="h-4 w-4" />
-              Copy
-            </Button>
-            <Button
-              onClick={handleDownload}
-              variant="outline"
-              size="sm"
-              className="gap-2"
-              data-testid="button-download-notes"
-            >
-              <Download className="h-4 w-4" />
+            <Button onClick={downloadAsDocx} data-testid="button-confirm-download">
+              <Download className="h-4 w-4 mr-2" />
               Download
             </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Card className="h-full shadow-lg">
+        <div className="border-b p-3 sm:p-4">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <h3 className="font-semibold text-foreground shrink-0">Medical Notes</h3>
+            <div className="flex flex-wrap gap-1.5 sm:gap-2">
+              <Button
+                onClick={handleTouchup}
+                variant="outline"
+                size="sm"
+                className="gap-1 sm:gap-2 text-xs sm:text-sm px-2 sm:px-3"
+                disabled={isTouchingUp || !content}
+                data-testid="button-touchup-notes"
+              >
+                <Sparkles className="h-3 w-3 sm:h-4 sm:w-4" />
+                <span className="hidden xs:inline">{isTouchingUp ? 'Touching up...' : 'Touchup'}</span>
+                <span className="xs:hidden">{isTouchingUp ? '...' : 'Touch'}</span>
+              </Button>
+              <Button
+                onClick={() => setShowMCQ(true)}
+                variant="outline"
+                size="sm"
+                className="gap-1 sm:gap-2 text-xs sm:text-sm px-2 sm:px-3"
+                disabled={!ocrTexts || ocrTexts.length === 0}
+                data-testid="button-generate-mcqs"
+              >
+                <Brain className="h-3 w-3 sm:h-4 sm:w-4" />
+                <span className="hidden sm:inline">Generate MCQs</span>
+                <span className="sm:hidden">MCQs</span>
+              </Button>
+              <Button
+                onClick={handleUndo}
+                variant="outline"
+                size="sm"
+                className="gap-1 text-xs sm:text-sm px-2 sm:px-3"
+                disabled={historyIndex <= 0}
+                data-testid="button-undo-touchup"
+              >
+                <Undo2 className="h-3 w-3 sm:h-4 sm:w-4" />
+                <span className="hidden sm:inline">Undo</span>
+              </Button>
+              <Button
+                onClick={handleRedo}
+                variant="outline"
+                size="sm"
+                className="gap-1 text-xs sm:text-sm px-2 sm:px-3"
+                disabled={historyIndex >= contentHistory.length - 1}
+                data-testid="button-redo-touchup"
+              >
+                <Redo2 className="h-3 w-3 sm:h-4 sm:w-4" />
+                <span className="hidden sm:inline">Redo</span>
+              </Button>
+              <Button
+                onClick={handleCopy}
+                variant="outline"
+                size="sm"
+                className="gap-1 text-xs sm:text-sm px-2 sm:px-3"
+                data-testid="button-copy-notes"
+              >
+                <Copy className="h-3 w-3 sm:h-4 sm:w-4" />
+                <span className="hidden sm:inline">Copy</span>
+              </Button>
+              <Button
+                onClick={handleDownload}
+                variant="outline"
+                size="sm"
+                className="gap-1 text-xs sm:text-sm px-2 sm:px-3"
+                data-testid="button-download-notes"
+              >
+                <Download className="h-3 w-3 sm:h-4 sm:w-4" />
+                <span className="hidden sm:inline">Download</span>
+              </Button>
+            </div>
           </div>
         </div>
-      </div>
 
       <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as 'preview' | 'edit')} className="h-full">
         <div className="border-b px-4">
@@ -611,6 +666,7 @@ Return **ONLY** the enhanced and formatted HTML content — clean, structured, a
           </div>
         </TabsContent>
       </Tabs>
-    </Card>
+      </Card>
+    </>
   );
 };
