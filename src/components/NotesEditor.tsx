@@ -75,17 +75,6 @@ export const NotesEditor = ({ content, onContentChange, ocrTexts = [] }: NotesEd
 - Ensure professional tone suitable for MBBS-level or higher medical learning.
 - Convert long sentences into two or more short, clear bullet points.
 
----
-
-### 🧠 **MEMORY-ANCHOR ENHANCEMENT (MAIN HEADINGS & SUB-RECAPS)**
-1. Before the full structured explanation, include a **"MAIN HEADINGS (for quick recall)"** section **only if** the topic contains multiple major categories (e.g., types, causes, complications, classifications, etc.).
-   - Place this section **before** the detailed explanation.
-   - Purpose: helps readers visualize and memorize the topic structure at a glance.
-
-2. If any **main heading** (e.g., “Cardiac Complications”) contains **multiple significant subheadings or long subsections**, then add a **“QUICK SUB-RECAP”** list immediately **under that main heading**.
-   - This list should appear **just below the main heading** and **before** the detailed text for that section.
-   - Include it **only when** subheadings are extensive or have large text blocks.
-   - This ensures hierarchical clarity and faster mental mapping.
 
 ---
 
@@ -160,7 +149,7 @@ Return **ONLY** the enhanced and formatted HTML content — clean, structured, a
             { role: 'system', content: touchupSystemPrompt },
             { role: 'user', content: `Please enhance and format these medical notes while preserving all medical accuracy:\n\n${currentContent}` }
           ],
-          temperature: 0.2, // Lower temperature for more consistent medical formatting
+          temperature: 0.5, // Lower temperature for more consistent medical formatting
           max_tokens: 8192, // Higher token limit for comprehensive notes
           top_p: 0.9
         })
