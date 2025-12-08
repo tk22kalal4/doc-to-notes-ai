@@ -9,8 +9,45 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Editor } from '@tinymce/tinymce-react';
 import { MCQGenerator } from '@/components/MCQGenerator';
-import { Document, Packer, Paragraph, TextRun, HeadingLevel, AlignmentType } from 'docx';
+import { Document, Packer, Paragraph, TextRun, HeadingLevel, AlignmentType, ImageRun } from 'docx';
 import { saveAs } from 'file-saver';
+
+// Helper function to fetch image as ArrayBuffer
+const fetchImageAsArrayBuffer = async (src: string): Promise<ArrayBuffer | null> => {
+  try {
+    if (src.startsWith('data:')) {
+      // Handle base64 data URLs
+      const base64Data = src.split(',')[1];
+      const binaryString = atob(base64Data);
+      const bytes = new Uint8Array(binaryString.length);
+      for (let i = 0; i < binaryString.length; i++) {
+        bytes[i] = binaryString.charCodeAt(i);
+      }
+      return bytes.buffer;
+    } else {
+      // Handle regular URLs
+      const response = await fetch(src);
+      return await response.arrayBuffer();
+    }
+  } catch (error) {
+    console.error('Failed to fetch image:', error);
+    return null;
+  }
+};
+
+// Helper to get image dimensions
+const getImageDimensions = (src: string): Promise<{ width: number; height: number }> => {
+  return new Promise((resolve) => {
+    const img = new Image();
+    img.onload = () => {
+      resolve({ width: img.naturalWidth, height: img.naturalHeight });
+    };
+    img.onerror = () => {
+      resolve({ width: 400, height: 300 }); // Default dimensions
+    };
+    img.src = src;
+  });
+};
 
 interface NotesEditorProps {
   content: string;
@@ -233,12 +270,12 @@ Return **ONLY** the enhanced and formatted HTML content — clean, structured, a
     setShowDownloadDialog(true);
   };
 
-  const parseHtmlToDocxElements = (htmlContent: string) => {
+  const parseHtmlToDocxElements = async (htmlContent: string): Promise<any[]> => {
     const parser = new DOMParser();
     const doc = parser.parseFromString(htmlContent, 'text/html');
-    const elements: (typeof Paragraph)[] = [];
+    const elements: any[] = [];
 
-    const processNode = (node: Node, depth: number = 0): (typeof Paragraph)[] => {
+    const processNode = async (node: Node, depth: number = 0): Promise<any[]> => {
       const result: any[] = [];
       
       if (node.nodeType === Node.TEXT_NODE) {
@@ -257,6 +294,56 @@ Return **ONLY** the enhanced and formatted HTML content — clean, structured, a
         const textContent = element.textContent?.trim() || '';
 
         switch (tagName) {
+          case 'img': {
+            const src = element.getAttribute('src');
+            if (src) {
+              const imageData = await fetchImageAsArrayBuffer(src);
+              if (imageData) {
+                // Get original dimensions
+                const originalDimensions = await getImageDimensions(src);
+                
+                // Get inline styles for width/height if specified
+                const styleWidth = element.getAttribute('width') || (element as HTMLElement).style?.width;
+                const styleHeight = element.getAttribute('height') || (element as HTMLElement).style?.height;
+                
+                let width = originalDimensions.width;
+                let height = originalDimensions.height;
+                
+                // Parse style dimensions
+                if (styleWidth) {
+                  const parsedWidth = parseInt(styleWidth.toString().replace('px', ''), 10);
+                  if (!isNaN(parsedWidth)) width = parsedWidth;
+                }
+                if (styleHeight) {
+                  const parsedHeight = parseInt(styleHeight.toString().replace('px', ''), 10);
+                  if (!isNaN(parsedHeight)) height = parsedHeight;
+                }
+                
+                // Scale down if too large (max 600px width for docx)
+                const maxWidth = 600;
+                if (width > maxWidth) {
+                  const scale = maxWidth / width;
+                  width = maxWidth;
+                  height = Math.round(height * scale);
+                }
+                
+                result.push(new Paragraph({
+                  children: [
+                    new ImageRun({
+                      data: imageData,
+                      transformation: {
+                        width,
+                        height,
+                      },
+                      type: 'png',
+                    }),
+                  ],
+                  spacing: { before: 200, after: 200 },
+                }));
+              }
+            }
+            break;
+          }
           case 'h1':
             result.push(new Paragraph({
               children: [new TextRun({ text: textContent, bold: true, size: 36, color: '0891b2' })],
@@ -285,68 +372,132 @@ Return **ONLY** the enhanced and formatted HTML content — clean, structured, a
               spacing: { before: 150, after: 75 },
             }));
             break;
-          case 'p':
-            const runs: (typeof TextRun)[] = [];
-            element.childNodes.forEach((child) => {
+          case 'p': {
+            const runs: any[] = [];
+            for (const child of Array.from(element.childNodes)) {
               if (child.nodeType === Node.TEXT_NODE) {
                 const t = child.textContent || '';
-                if (t) runs.push(new TextRun({ text: t, size: 24 }) as any);
+                if (t) runs.push(new TextRun({ text: t, size: 24 }));
               } else if (child.nodeType === Node.ELEMENT_NODE) {
                 const el = child as Element;
-                const ct = el.textContent || '';
-                if (el.tagName.toLowerCase() === 'strong' || el.tagName.toLowerCase() === 'b') {
-                  runs.push(new TextRun({ text: ct, bold: true, size: 24 }) as any);
-                } else if (el.tagName.toLowerCase() === 'em' || el.tagName.toLowerCase() === 'i') {
-                  runs.push(new TextRun({ text: ct, italics: true, size: 24 }) as any);
+                const elTag = el.tagName.toLowerCase();
+                
+                // Handle inline images
+                if (elTag === 'img') {
+                  const imgSrc = el.getAttribute('src');
+                  if (imgSrc) {
+                    const imgData = await fetchImageAsArrayBuffer(imgSrc);
+                    if (imgData) {
+                      const dims = await getImageDimensions(imgSrc);
+                      let w = dims.width;
+                      let h = dims.height;
+                      
+                      const sw = el.getAttribute('width') || (el as HTMLElement).style?.width;
+                      const sh = el.getAttribute('height') || (el as HTMLElement).style?.height;
+                      if (sw) {
+                        const pw = parseInt(sw.toString().replace('px', ''), 10);
+                        if (!isNaN(pw)) w = pw;
+                      }
+                      if (sh) {
+                        const ph = parseInt(sh.toString().replace('px', ''), 10);
+                        if (!isNaN(ph)) h = ph;
+                      }
+                      
+                      const maxW = 600;
+                      if (w > maxW) {
+                        const sc = maxW / w;
+                        w = maxW;
+                        h = Math.round(h * sc);
+                      }
+                      
+                      runs.push(new ImageRun({
+                        data: imgData,
+                        transformation: { width: w, height: h },
+                        type: 'png',
+                      }));
+                    }
+                  }
                 } else {
-                  runs.push(new TextRun({ text: ct, size: 24 }) as any);
+                  const ct = el.textContent || '';
+                  if (elTag === 'strong' || elTag === 'b') {
+                    runs.push(new TextRun({ text: ct, bold: true, size: 24 }));
+                  } else if (elTag === 'em' || elTag === 'i') {
+                    runs.push(new TextRun({ text: ct, italics: true, size: 24 }));
+                  } else {
+                    runs.push(new TextRun({ text: ct, size: 24 }));
+                  }
                 }
               }
-            });
+            }
             if (runs.length > 0) {
               result.push(new Paragraph({
-                children: runs as any,
+                children: runs,
                 spacing: { before: 100, after: 100 },
               }));
             }
             break;
+          }
           case 'ul':
           case 'ol':
-            element.querySelectorAll(':scope > li').forEach((li, idx) => {
+            for (const [idx, li] of Array.from(element.querySelectorAll(':scope > li')).entries()) {
               const bulletText = tagName === 'ol' ? `${idx + 1}. ` : '• ';
               const liRuns: any[] = [];
               const indent = depth * 720;
               
-              li.childNodes.forEach((child) => {
+              for (const child of Array.from(li.childNodes)) {
                 if (child.nodeType === Node.TEXT_NODE) {
                   const t = child.textContent?.trim() || '';
                   if (t) liRuns.push(new TextRun({ text: t, size: 24 }));
                 } else if (child.nodeType === Node.ELEMENT_NODE) {
                   const el = child as Element;
-                  if (el.tagName.toLowerCase() === 'ul' || el.tagName.toLowerCase() === 'ol') {
-                    return;
+                  const elTag = el.tagName.toLowerCase();
+                  if (elTag === 'ul' || elTag === 'ol') {
+                    continue;
                   }
-                  const ct = el.textContent || '';
-                  if (el.tagName.toLowerCase() === 'strong' || el.tagName.toLowerCase() === 'b') {
-                    liRuns.push(new TextRun({ text: ct, bold: true, size: 24 }));
+                  if (elTag === 'img') {
+                    const imgSrc = el.getAttribute('src');
+                    if (imgSrc) {
+                      const imgData = await fetchImageAsArrayBuffer(imgSrc);
+                      if (imgData) {
+                        const dims = await getImageDimensions(imgSrc);
+                        let w = dims.width;
+                        let h = dims.height;
+                        const maxW = 500;
+                        if (w > maxW) {
+                          const sc = maxW / w;
+                          w = maxW;
+                          h = Math.round(h * sc);
+                        }
+                        liRuns.push(new ImageRun({
+                          data: imgData,
+                          transformation: { width: w, height: h },
+                          type: 'png',
+                        }));
+                      }
+                    }
                   } else {
-                    liRuns.push(new TextRun({ text: ct, size: 24 }));
+                    const ct = el.textContent || '';
+                    if (elTag === 'strong' || elTag === 'b') {
+                      liRuns.push(new TextRun({ text: ct, bold: true, size: 24 }));
+                    } else {
+                      liRuns.push(new TextRun({ text: ct, size: 24 }));
+                    }
                   }
                 }
-              });
+              }
               
               if (liRuns.length > 0) {
                 result.push(new Paragraph({
-                  children: [new TextRun({ text: bulletText, size: 24 }), ...liRuns] as any,
+                  children: [new TextRun({ text: bulletText, size: 24 }), ...liRuns],
                   indent: { left: indent + 360 },
                   spacing: { before: 50, after: 50 },
                 }));
               }
 
-              li.querySelectorAll(':scope > ul, :scope > ol').forEach((nestedList) => {
-                result.push(...processNode(nestedList, depth + 1));
-              });
-            });
+              for (const nestedList of Array.from(li.querySelectorAll(':scope > ul, :scope > ol'))) {
+                result.push(...await processNode(nestedList, depth + 1));
+              }
+            }
             break;
           case 'hr':
             result.push(new Paragraph({
@@ -359,25 +510,25 @@ Return **ONLY** the enhanced and formatted HTML content — clean, structured, a
             result.push(new Paragraph({ children: [] }));
             break;
           default:
-            element.childNodes.forEach((child) => {
-              result.push(...processNode(child, depth));
-            });
+            for (const child of Array.from(element.childNodes)) {
+              result.push(...await processNode(child, depth));
+            }
         }
       }
 
       return result;
     };
 
-    doc.body.childNodes.forEach((child) => {
-      elements.push(...processNode(child) as any);
-    });
+    for (const child of Array.from(doc.body.childNodes)) {
+      elements.push(...await processNode(child));
+    }
 
     return elements;
   };
 
   const downloadAsDocx = async () => {
     try {
-      const docElements = parseHtmlToDocxElements(content);
+      const docElements = await parseHtmlToDocxElements(content);
       
       const doc = new Document({
         sections: [{
