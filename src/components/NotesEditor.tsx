@@ -456,7 +456,6 @@ Return **ONLY** the enhanced and formatted HTML content — clean, structured, a
           
               const liRuns: any[] = [];
               const indent = depth * 720;
-              // ... rest of your existing <li> processing code stays the same
               
               for (const child of Array.from(li.childNodes)) {
                 if (child.nodeType === Node.TEXT_NODE) {
