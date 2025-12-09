@@ -438,11 +438,25 @@ Return **ONLY** the enhanced and formatted HTML content — clean, structured, a
             break;
           }
           case 'ul':
-          case 'ol':
+          case 'ol': {
+            // Map numbers to emoji digits for ordered lists
+            const numberEmojis = ['0️⃣','1️⃣','2️⃣','3️⃣','4️⃣','5️⃣','6️⃣','7️⃣','8️⃣','9️⃣','🔟'];
+          
             for (const [idx, li] of Array.from(element.querySelectorAll(':scope > li')).entries()) {
-              const bulletText = tagName === 'ol' ? `${idx + 1}. ` : '• ';
+              let bulletText: string;
+          
+              if (tagName === 'ol') {
+                const num = idx + 1;
+                // Use emoji for 1–10, fallback to "11." style after that
+                const emoji = numberEmojis[num] || `${num}.`;
+                bulletText = `${emoji} `;
+              } else {
+                bulletText = '• ';
+              }
+          
               const liRuns: any[] = [];
               const indent = depth * 720;
+              // ... rest of your existing <li> processing code stays the same
               
               for (const child of Array.from(li.childNodes)) {
                 if (child.nodeType === Node.TEXT_NODE) {
