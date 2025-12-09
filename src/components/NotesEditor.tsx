@@ -439,7 +439,7 @@ Return **ONLY** the enhanced and formatted HTML content — clean, structured, a
           }
           case 'ul':
           case 'ol': {
-            // Map numbers to emoji digits for ordered lists
+            // Numeric emoji map for ordered lists
             const numberEmojis = ['0️⃣','1️⃣','2️⃣','3️⃣','4️⃣','5️⃣','6️⃣','7️⃣','8️⃣','9️⃣','🔟'];
           
             for (const [idx, li] of Array.from(element.querySelectorAll(':scope > li')).entries()) {
@@ -447,7 +447,6 @@ Return **ONLY** the enhanced and formatted HTML content — clean, structured, a
           
               if (tagName === 'ol') {
                 const num = idx + 1;
-                // Use emoji for 1–10, fallback to "11." style after that
                 const emoji = numberEmojis[num] || `${num}.`;
                 bulletText = `${emoji} `;
               } else {
@@ -456,17 +455,20 @@ Return **ONLY** the enhanced and formatted HTML content — clean, structured, a
           
               const liRuns: any[] = [];
               const indent = depth * 720;
-              
+          
               for (const child of Array.from(li.childNodes)) {
                 if (child.nodeType === Node.TEXT_NODE) {
                   const t = child.textContent?.trim() || '';
                   if (t) liRuns.push(new TextRun({ text: t, size: 24 }));
-                } else if (child.nodeType === Node.ELEMENT_NODE) {
+                } 
+                else if (child.nodeType === Node.ELEMENT_NODE) {
                   const el = child as Element;
                   const elTag = el.tagName.toLowerCase();
+          
                   if (elTag === 'ul' || elTag === 'ol') {
-                    continue;
+                    continue; // nested handled later
                   }
+          
                   if (elTag === 'img') {
                     const imgSrc = el.getAttribute('src');
                     if (imgSrc) {
@@ -475,17 +477,21 @@ Return **ONLY** the enhanced and formatted HTML content — clean, structured, a
                         const dims = await getImageDimensions(imgSrc);
                         let w = dims.width;
                         let h = dims.height;
+          
                         const maxW = 500;
                         if (w > maxW) {
                           const sc = maxW / w;
                           w = maxW;
                           h = Math.round(h * sc);
                         }
-                        liRuns.push(new ImageRun({
-                          data: imgData,
-                          transformation: { width: w, height: h },
-                          type: 'png',
-                        }));
+          
+                        liRuns.push(
+                          new ImageRun({
+                            data: imgData,
+                            transformation: { width: w, height: h },
+                            type: 'png',
+                          })
+                        );
                       }
                     }
                   } else {
@@ -498,20 +504,24 @@ Return **ONLY** the enhanced and formatted HTML content — clean, structured, a
                   }
                 }
               }
-              
+          
               if (liRuns.length > 0) {
-                result.push(new Paragraph({
-                  children: [new TextRun({ text: bulletText, size: 24 }), ...liRuns],
-                  indent: { left: indent + 360 },
-                  spacing: { before: 50, after: 50 },
-                }));
+                result.push(
+                  new Paragraph({
+                    children: [new TextRun({ text: bulletText, size: 24 }), ...liRuns],
+                    indent: { left: indent + 360 },
+                    spacing: { before: 50, after: 50 },
+                  })
+                );
               }
-
+          
+              // Process nested <ul> or <ol>
               for (const nestedList of Array.from(li.querySelectorAll(':scope > ul, :scope > ol'))) {
                 result.push(...await processNode(nestedList, depth + 1));
               }
             }
-            break;
+          } // ✅ IMPORTANT: closes block opened after "case 'ol': {"
+          break;
           case 'hr':
             result.push(new Paragraph({
               children: [new TextRun({ text: '─'.repeat(50), size: 24, color: 'cccccc' })],
