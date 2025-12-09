@@ -147,8 +147,8 @@ export const NotesEditor = ({ content, onContentChange, ocrTexts = [] }: NotesEd
    - **Bullet Level 1:** 🔹 or 📌
    - **Bullet Level 2:** 🔸 or 🧠
    - **Bullet Level 3:** ✨ or 💡
-   - **MAIN HEADINGS (for quick recall):** 📌
-   - **SUB-RECAPS:** 💓
+   - **STEPS or NUMBERIC Bullet Points:** 1️⃣,2️⃣,3️⃣,....etc.
+   
 
 8. Combine **structural emoji hierarchy** with **automatic contextual emojis**:
    - Automatically select relevant emojis based on section keywords or topic meaning.  
