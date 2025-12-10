@@ -88,7 +88,7 @@ CRITICAL FORMATTING RULES - FOLLOW EXACTLY:
    - Subpoints: <h4>emoji Subpoint</h4>
    - Add <hr> after major sections for visual separation
    
-2. EMOJI USAGE: used as prefixes only, not after the following text
+2. EMOJI USAGE:
    - Headings: Use 💡, 🎯, 📚, 🔬, 🩺, 💊 (educational/medical emojis)
    - Bullet Level 1: 🔹 or 📌
    - Bullet Level 2: 🔸 or 💡
