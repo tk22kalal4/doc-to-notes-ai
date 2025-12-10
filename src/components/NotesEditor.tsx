@@ -142,7 +142,7 @@ export const NotesEditor = ({ content, onContentChange, ocrTexts = [] }: NotesEd
 5. Preserve medical hierarchy: **Definition → Causes → Pathophysiology → Clinical Features → Diagnosis → Management → Complications → Prognosis.**
 6. When presenting multiple facts or subpoints, use a **three-level bullet system**.
 
-7. **EMOJI USAGE:**
+7. **EMOJI USAGE:** always used as prefixes, never used after following text
    - **H1 headings:** Use ❤️, 🩺, 💊, 🧬, 🔬, 🏥 (medical emojis)
    - **H2 headings:** Use 🔹, 💪, 💨, 💓, 🩺 (relevant emojis)
    - **Bullet Level 1:** 🔹 or 📌
