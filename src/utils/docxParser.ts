@@ -36,23 +36,34 @@ const processElementsForStyling = (container: HTMLElement) => {
     
     // Apply heading colors to match the download format
     if (tagName === 'h1') {
-      // H1: cyan color with proper spacing
+      // H1: cyan color with proper spacing and font
       el.style.color = '#0891b2';
       el.style.marginTop = '24px';
       el.style.marginBottom = '12px';
+      el.style.fontSize = '1.875rem';
+      el.style.fontWeight = '700';
+      el.style.lineHeight = '1.3';
     } else if (tagName === 'h2') {
-      // H2: purple color with proper spacing
+      // H2: purple color with proper spacing and font
       el.style.color = '#9333ea';
       el.style.marginTop = '18px';
       el.style.marginBottom = '9px';
+      el.style.fontSize = '1.5rem';
+      el.style.fontWeight = '600';
+      el.style.lineHeight = '1.4';
     } else if (tagName === 'h3') {
-      // H3: proper spacing
+      // H3: proper spacing and font
       el.style.marginTop = '12px';
       el.style.marginBottom = '6px';
+      el.style.fontSize = '1.25rem';
+      el.style.fontWeight = '600';
+      el.style.lineHeight = '1.4';
     } else if (tagName === 'h4') {
-      // H4: proper spacing
+      // H4: proper spacing and font
       el.style.marginTop = '9px';
       el.style.marginBottom = '4.5px';
+      el.style.fontWeight = '600';
+      el.style.lineHeight = '1.4';
     } else if (tagName === 'p') {
       // Paragraphs: proper spacing and max-width constraint
       el.style.marginTop = '6px';
@@ -60,7 +71,39 @@ const processElementsForStyling = (container: HTMLElement) => {
       el.style.maxWidth = '100%';
       el.style.wordWrap = 'break-word';
       el.style.overflowWrap = 'break-word';
+      el.style.lineHeight = '1.8';
+    } else if (tagName === 'li') {
+      // List items: proper spacing
+      el.style.marginBottom = '0.5rem';
+      el.style.lineHeight = '1.8';
+      el.style.maxWidth = '100%';
+      el.style.wordWrap = 'break-word';
+      el.style.overflowWrap = 'break-word';
     }
+  });
+  
+  // Apply spacing to lists
+  container.querySelectorAll('ul, ol').forEach((list: Element) => {
+    const listEl = list as HTMLElement;
+    listEl.style.marginTop = '0.75rem';
+    listEl.style.marginBottom = '0.75rem';
+    listEl.style.maxWidth = '100%';
+    listEl.style.overflowWrap = 'break-word';
+  });
+  
+  // Apply proper indentation to nested lists
+  container.querySelectorAll('ul ul, ol ol').forEach((nestedList: Element) => {
+    const nestedEl = nestedList as HTMLElement;
+    nestedEl.style.marginTop = '0.5rem';
+    nestedEl.style.marginBottom = '0.5rem';
+    nestedEl.style.paddingLeft = '2rem';
+  });
+  
+  container.querySelectorAll('ul ul ul, ol ol ol').forEach((tripleNestedList: Element) => {
+    const tripleEl = tripleNestedList as HTMLElement;
+    tripleEl.style.marginTop = '0.25rem';
+    tripleEl.style.marginBottom = '0.25rem';
+    tripleEl.style.paddingLeft = '2rem';
   });
   
   // Convert horizontal lines (which mammoth may represent as separators) to proper HR elements
