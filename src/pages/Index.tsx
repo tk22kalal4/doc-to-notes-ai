@@ -392,6 +392,8 @@ const Index = () => {
                 content={generatedNotes}
                 onContentChange={setGeneratedNotes}
                 ocrTexts={ocrTexts}
+                uploadMode={uploadMode}
+                docxContent={uploadMode === 'docx' ? generatedNotes : ''}
               />
             </div>
           </div>
@@ -681,8 +683,8 @@ const Index = () => {
       </main>
 
       {/* AI Chatbot - Shows after notes are generated */}
-      {generatedNotes && ocrTexts.length > 0 && (
-        <AIChatbot ocrTexts={ocrTexts} />
+      {generatedNotes && (uploadMode === 'docx' || ocrTexts.length > 0) && (
+        <AIChatbot ocrTexts={uploadMode === 'docx' ? [generatedNotes] : ocrTexts} />
       )}
     </div>
   );
