@@ -901,15 +901,16 @@ Return **ONLY** the enhanced and formatted HTML content — clean, structured, a
                   'anchor', 'searchreplace', 'visualblocks', 'code', 'fullscreen',
                   'insertdatetime', 'media', 'table', 'code', 'help', 'wordcount'
                 ],
-                toolbar: 'undo redo | blocks | ' +
+                toolbar: 'undo redo | blocks fontfamily fontsize | ' +
                   'bold italic forecolor | alignleft aligncenter ' +
                   'alignright alignjustify | bullist numlist outdent indent | ' +
-                  'removeformat | image media table | fontfamily | help',
+                  'removeformat | image media table | help',
                 content_style: contentStyle,
                 placeholder: 'Your generated notes will appear here. Use the toolbar to format text, add images, and customize your notes...',
                 
-                // Font family options including Kalam handwritten fonts
-                font_formats: 
+                // Font family options for BOTH toolbar dropdown AND Format > Fonts menu
+                // TinyMCE 6+ uses font_family_formats
+                font_family_formats: 
                   'Kalam=Kalam, cursive;' +
                   'Kalam Light=Kalam Light, cursive;' +
                   'Kalam Bold=Kalam Bold, cursive;' +
@@ -922,6 +923,9 @@ Return **ONLY** the enhanced and formatted HTML content — clean, structured, a
                   'Verdana=Verdana, sans-serif;' +
                   'Impact=Impact, fantasy;' +
                   'Tahoma=Tahoma, sans-serif;',
+                
+                // Font size options
+                font_size_formats: '8pt 10pt 12pt 14pt 16pt 18pt 24pt 36pt 48pt',
                 
                 // Image settings
                 image_advtab: true,
