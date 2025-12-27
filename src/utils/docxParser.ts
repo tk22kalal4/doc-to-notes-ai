@@ -1,3 +1,4 @@
+
 import mammoth from 'mammoth';
 
 export const parseDocxFile = async (file: File): Promise<string> => {
