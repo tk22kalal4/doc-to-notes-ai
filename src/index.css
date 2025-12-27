@@ -2,6 +2,25 @@
 @tailwind components;
 @tailwind utilities;
 
+/* Kalam Handwritten Fonts */
+@font-face {
+  font-family: 'Kalam';
+  src: url('../../font/Kalam-Regular.ttf') format('truetype');
+  font-weight: 400;
+}
+
+@font-face {
+  font-family: 'Kalam Light';
+  src: url('../../font/Kalam-Light.ttf') format('truetype');
+  font-weight: 300;
+}
+
+@font-face {
+  font-family: 'Kalam Bold';
+  src: url('../../font/Kalam-Bold.ttf') format('truetype');
+  font-weight: 700;
+}
+
 /* Definition of the design system. All colors, gradients, fonts, etc should be defined here. 
 All colors MUST be HSL.
 */
