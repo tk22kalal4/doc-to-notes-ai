@@ -457,7 +457,10 @@ Return **ONLY** the enhanced and formatted HTML content — clean, structured, a
               }
           
               const liRuns: any[] = [];
-              const indent = depth * 720;
+              // Calculate proper left indent: base margin + depth-based indentation
+              const baseMargin = 720; // 0.5 inch = 720 twips
+              const depthIndent = depth * 720; // 0.5 inch per level
+              const totalIndent = baseMargin + depthIndent;
           
               for (const child of Array.from(li.childNodes)) {
                 if (child.nodeType === Node.TEXT_NODE) {
@@ -512,7 +515,7 @@ Return **ONLY** the enhanced and formatted HTML content — clean, structured, a
                 result.push(
                   new Paragraph({
                     children: [new TextRun({ text: bulletText, size: 24 }), ...liRuns],
-                    indent: { left: indent + 360 },
+                    indent: { left: totalIndent, hanging: 360 },
                     spacing: { before: 50, after: 50 },
                   })
                 );
@@ -792,6 +795,21 @@ Return **ONLY** the enhanced and formatted HTML content — clean, structured, a
                   'alignright alignjustify | bullist numlist outdent indent | ' +
                   'removeformat | image media table | fontfamily | help',
                 content_style: `
+                  @font-face {
+                    font-family: 'Kalam';
+                    src: url('../../font/Kalam-Regular.ttf') format('truetype');
+                    font-weight: 400;
+                  }
+                  @font-face {
+                    font-family: 'Kalam Light';
+                    src: url('../../font/Kalam-Light.ttf') format('truetype');
+                    font-weight: 300;
+                  }
+                  @font-face {
+                    font-family: 'Kalam Bold';
+                    src: url('../../font/Kalam-Bold.ttf') format('truetype');
+                    font-weight: 700;
+                  }
                   body { 
                     font-family: Arial, sans-serif; 
                     font-size: 14px;
@@ -836,11 +854,19 @@ Return **ONLY** the enhanced and formatted HTML content — clean, structured, a
                     max-width: 100%;
                     word-wrap: break-word;
                     overflow-wrap: break-word;
+                    margin-left: 1.5rem !important;
+                  }
+                  ul ul, ol ol {
+                    margin-left: 2rem !important;
+                  }
+                  ul ul ul, ol ol ol {
+                    margin-left: 2rem !important;
                   }
                   li {
                     max-width: 100%;
                     word-wrap: break-word;
                     overflow-wrap: break-word;
+                    margin-bottom: 0.5rem !important;
                   }
                   img { 
                     max-width: 100%; 
@@ -880,9 +906,9 @@ Return **ONLY** the enhanced and formatted HTML content — clean, structured, a
                   'Verdana=Verdana, sans-serif;' +
                   'Impact=Impact, fantasy;' +
                   'Tahoma=Tahoma, sans-serif;' +
-                  'Kalam=\'Kalam\', cursive;' +
-                  'Kalam Light=\'Kalam Light\', cursive;' +
-                  'Kalam Bold=\'Kalam Bold\', cursive;',
+                  'Kalam Regular=Kalam, cursive;' +
+                  'Kalam Light=Kalam Light, cursive;' +
+                  'Kalam Bold=Kalam Bold, cursive;',
                 
                 // Image settings
                 image_advtab: true,
