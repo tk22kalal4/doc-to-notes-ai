@@ -910,6 +910,9 @@ Return **ONLY** the enhanced and formatted HTML content — clean, structured, a
                 
                 // Font family options including Kalam handwritten fonts
                 font_formats: 
+                  'Kalam=Kalam, cursive;' +
+                  'Kalam Light=Kalam Light, cursive;' +
+                  'Kalam Bold=Kalam Bold, cursive;' +
                   'Arial=Arial, Helvetica, sans-serif;' +
                   'Georgia=Georgia, serif;' +
                   'Times New Roman=Times New Roman, Times, serif;' +
@@ -918,10 +921,7 @@ Return **ONLY** the enhanced and formatted HTML content — clean, structured, a
                   'Trebuchet MS=Trebuchet MS, sans-serif;' +
                   'Verdana=Verdana, sans-serif;' +
                   'Impact=Impact, fantasy;' +
-                  'Tahoma=Tahoma, sans-serif;' +
-                  'Kalam Regular=Kalam, cursive;' +
-                  'Kalam Light=Kalam Light, cursive;' +
-                  'Kalam Bold=Kalam Bold, cursive;',
+                  'Tahoma=Tahoma, sans-serif;',
                 
                 // Image settings
                 image_advtab: true,
