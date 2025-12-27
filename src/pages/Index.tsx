@@ -13,6 +13,8 @@ import { ImageSequenceManager } from '@/components/ImageSequenceManager';
 import { ImageViewer } from '@/components/ImageViewer';
 import { ImageOCRProcessor } from '@/components/ImageOCRProcessor';
 import { arrangeImagesIntoA4Pages } from '@/utils/imageToA4';
+import { parseDocxFile, isDocxFile } from '@/utils/docxParser';
+import { useToast } from '@/hooks/use-toast';
 
 interface ImageItem {
   id: string;
@@ -22,7 +24,8 @@ interface ImageItem {
 
 
 const Index = () => {
-  const [uploadMode, setUploadMode] = useState<'pdf' | 'image' | null>(null);
+  const { toast } = useToast();
+  const [uploadMode, setUploadMode] = useState<'pdf' | 'image' | 'docx' | null>(null);
   
   // PDF states
   const [pdfFile, setPdfFile] = useState<File | null>(null);
@@ -47,6 +50,9 @@ const Index = () => {
   const [ocrCurrentPage, setOcrCurrentPage] = useState(0);
   const [notesProgress, setNotesProgress] = useState(0);
   const [notesCurrentPage, setNotesCurrentPage] = useState(0);
+  
+  // DOCX states
+  const [isParsingDocx, setIsParsingDocx] = useState(false);
 
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -91,6 +97,33 @@ const Index = () => {
       setOcrTexts([]);
       setGeneratedNotes('');
       setShowNotes(false);
+    }
+  };
+
+  const handleDocxSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file && isDocxFile(file)) {
+      setIsParsingDocx(true);
+      try {
+        const htmlContent = await parseDocxFile(file);
+        setGeneratedNotes(htmlContent);
+        setShowNotes(true);
+        setUploadMode('docx');
+        setOcrTexts([]);
+        toast({
+          title: 'Success',
+          description: 'DOCX file loaded successfully. You can now edit the notes.',
+        });
+      } catch (error) {
+        console.error('Error parsing docx:', error);
+        toast({
+          title: 'Error',
+          description: 'Failed to parse the DOCX file. Please ensure it is a valid Word document.',
+          variant: 'destructive',
+        });
+      } finally {
+        setIsParsingDocx(false);
+      }
     }
   };
 
@@ -189,6 +222,7 @@ const Index = () => {
     setIsGeneratingNotes(false);
     setGeneratedNotes('');
     setShowNotes(false);
+    setIsParsingDocx(false);
     images.forEach(img => URL.revokeObjectURL(img.url));
     setImages([]);
     setShowImageManager(false);
@@ -241,10 +275,10 @@ const Index = () => {
                   </div>
                 </div>
                 <h2 className="text-2xl sm:text-3xl font-bold mb-2">Upload Medical Documents</h2>
-                <p className="text-muted-foreground">Choose PDF or images to start</p>
+                <p className="text-muted-foreground">Choose PDF, images, or DOCX notes to start</p>
               </div>
               
-              <div className="grid md:grid-cols-2 gap-6">
+              <div className="grid md:grid-cols-3 gap-6">
                 {/* PDF Upload */}
                 <label
                   htmlFor="pdf-upload"
@@ -287,6 +321,28 @@ const Index = () => {
                     />
                   </div>
                 </div>
+
+                {/* DOCX Upload */}
+                <label
+                  htmlFor="docx-upload"
+                  className="block w-full cursor-pointer"
+                  data-testid="label-docx-upload"
+                >
+                  <div className="border-2 border-dashed border-emerald-300/30 rounded-2xl p-8 hover:border-emerald-300/60 hover:bg-emerald-300/5 transition-all duration-200 text-center h-full">
+                    <FileText className="h-12 w-12 mx-auto mb-4 text-emerald-600 dark:text-emerald-400" />
+                    <p className="text-lg font-medium mb-2">Word Document</p>
+                    <p className="text-sm text-muted-foreground">Upload a DOCX file to edit</p>
+                    <input
+                      id="docx-upload"
+                      type="file"
+                      accept=".docx,application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+                      onChange={handleDocxSelect}
+                      disabled={isParsingDocx}
+                      className="hidden"
+                      data-testid="input-docx-upload"
+                    />
+                  </div>
+                </label>
               </div>
             </div>
           </div>
