@@ -797,17 +797,17 @@ Return **ONLY** the enhanced and formatted HTML content — clean, structured, a
                 content_style: `
                   @font-face {
                     font-family: 'Kalam';
-                    src: url('../../font/Kalam-Regular.ttf') format('truetype');
+                    src: url('/font/Kalam-Regular.ttf') format('truetype');
                     font-weight: 400;
                   }
                   @font-face {
                     font-family: 'Kalam Light';
-                    src: url('../../font/Kalam-Light.ttf') format('truetype');
+                    src: url('/font/Kalam-Light.ttf') format('truetype');
                     font-weight: 300;
                   }
                   @font-face {
                     font-family: 'Kalam Bold';
-                    src: url('../../font/Kalam-Bold.ttf') format('truetype');
+                    src: url('/font/Kalam-Bold.ttf') format('truetype');
                     font-weight: 700;
                   }
                   body { 
