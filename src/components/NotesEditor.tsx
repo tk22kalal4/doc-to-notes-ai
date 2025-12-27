@@ -10,7 +10,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Editor } from '@tinymce/tinymce-react';
 import { MCQGenerator } from '@/components/MCQGenerator';
-import { Document, Packer, Paragraph, TextRun, HeadingLevel, AlignmentType, ImageRun } from 'docx';
+import { Document, Packer, Paragraph, TextRun, HeadingLevel, AlignmentType, ImageRun, Table, TableRow, TableCell } from 'docx';
 import { saveAs } from 'file-saver';
 
 // Helper function to fetch image as ArrayBuffer
@@ -54,9 +54,11 @@ interface NotesEditorProps {
   content: string;
   onContentChange: (content: string) => void;
   ocrTexts?: string[];
+  uploadMode?: 'pdf' | 'image' | 'docx' | null;
+  docxContent?: string;
 }
 
-export const NotesEditor = ({ content, onContentChange, ocrTexts = [] }: NotesEditorProps) => {
+export const NotesEditor = ({ content, onContentChange, ocrTexts = [], uploadMode = null, docxContent = '' }: NotesEditorProps) => {
   const [activeTab, setActiveTab] = useState<'preview' | 'edit'>('preview');
   const [isTouchingUp, setIsTouchingUp] = useState(false);
   const [contentHistory, setContentHistory] = useState<string[]>([]);
@@ -523,6 +525,42 @@ Return **ONLY** the enhanced and formatted HTML content — clean, structured, a
             }
           } // ✅ IMPORTANT: closes block opened after "case 'ol': {"
           break;
+          case 'table': {
+            const rows: any[] = [];
+            
+            const trs = Array.from(element.querySelectorAll('tr'));
+            for (const tr of trs) {
+              const cells: any[] = [];
+              const tds = Array.from(tr.querySelectorAll('td, th'));
+              
+              for (const td of tds) {
+                const cellContent: any[] = [];
+                const cellText = td.textContent?.trim() || '';
+                if (cellText) {
+                  cellContent.push(new Paragraph({
+                    children: [new TextRun({ text: cellText, size: 24 })]
+                  }));
+                } else {
+                  cellContent.push(new Paragraph({ children: [new TextRun({ text: '' })] }));
+                }
+                
+                cells.push(new TableCell({
+                  children: cellContent,
+                  shading: { fill: td.tagName.toLowerCase() === 'th' ? 'E0E0E0' : 'FFFFFF' }
+                }));
+              }
+              
+              rows.push(new TableRow({ children: cells }));
+            }
+            
+            if (rows.length > 0) {
+              result.push(new Table({
+                rows: rows,
+                width: { size: 100, type: 'pct' }
+              }));
+            }
+            break;
+          }
           case 'hr':
             result.push(new Paragraph({
               children: [new TextRun({ text: '─'.repeat(50), size: 24, color: 'cccccc' })],
@@ -599,7 +637,8 @@ Return **ONLY** the enhanced and formatted HTML content — clean, structured, a
   };
 
   if (showMCQ) {
-    return <MCQGenerator ocrTexts={ocrTexts} onClose={() => setShowMCQ(false)} />;
+    const contentForMCQ = uploadMode === 'docx' && docxContent ? [docxContent] : ocrTexts;
+    return <MCQGenerator ocrTexts={contentForMCQ} onClose={() => setShowMCQ(false)} />;
   }
 
   return (
@@ -658,7 +697,7 @@ Return **ONLY** the enhanced and formatted HTML content — clean, structured, a
                 variant="outline"
                 size="sm"
                 className="gap-1 sm:gap-2 text-xs sm:text-sm px-2 sm:px-3"
-                disabled={!ocrTexts || ocrTexts.length === 0}
+                disabled={uploadMode === 'docx' ? !docxContent : (!ocrTexts || ocrTexts.length === 0)}
                 data-testid="button-generate-mcqs"
               >
                 <Brain className="h-3 w-3 sm:h-4 sm:w-4" />
@@ -751,7 +790,7 @@ Return **ONLY** the enhanced and formatted HTML content — clean, structured, a
                 toolbar: 'undo redo | blocks | ' +
                   'bold italic forecolor | alignleft aligncenter ' +
                   'alignright alignjustify | bullist numlist outdent indent | ' +
-                  'removeformat | image media table | help',
+                  'removeformat | image media table | fontfamily | help',
                 content_style: `
                   body { 
                     font-family: Arial, sans-serif; 
@@ -814,8 +853,36 @@ Return **ONLY** the enhanced and formatted HTML content — clean, structured, a
                     opacity: 0.9;
                     outline: 2px solid #0891b2;
                   }
+                  table {
+                    border-collapse: collapse;
+                    width: 100%;
+                    margin: 12px 0;
+                  }
+                  td, th {
+                    border: 1px solid #cccccc;
+                    padding: 8px;
+                  }
+                  th {
+                    background-color: #f0f0f0;
+                    font-weight: bold;
+                  }
                 `,
                 placeholder: 'Your generated notes will appear here. Use the toolbar to format text, add images, and customize your notes...',
+                
+                // Font family options including Kalam handwritten fonts
+                font_formats: 
+                  'Arial=Arial, Helvetica, sans-serif;' +
+                  'Georgia=Georgia, serif;' +
+                  'Times New Roman=Times New Roman, Times, serif;' +
+                  'Courier New=Courier New, Courier, monospace;' +
+                  'Comic Sans MS=Comic Sans MS, cursive;' +
+                  'Trebuchet MS=Trebuchet MS, sans-serif;' +
+                  'Verdana=Verdana, sans-serif;' +
+                  'Impact=Impact, fantasy;' +
+                  'Tahoma=Tahoma, sans-serif;' +
+                  'Kalam=\'Kalam\', cursive;' +
+                  'Kalam Light=\'Kalam Light\', cursive;' +
+                  'Kalam Bold=\'Kalam Bold\', cursive;',
                 
                 // Image settings
                 image_advtab: true,
