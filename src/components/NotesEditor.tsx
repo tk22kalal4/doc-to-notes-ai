@@ -757,7 +757,52 @@ Return **ONLY** the enhanced and formatted HTML content — clean, structured, a
                     font-family: Arial, sans-serif; 
                     font-size: 14px;
                     line-height: 1.6;
-                  } 
+                  }
+                  h1 {
+                    color: #0891b2 !important;
+                    margin-top: 24px !important;
+                    margin-bottom: 12px !important;
+                    font-weight: bold;
+                  }
+                  h2 {
+                    color: #9333ea !important;
+                    margin-top: 18px !important;
+                    margin-bottom: 9px !important;
+                    font-weight: bold;
+                  }
+                  h3 {
+                    margin-top: 12px !important;
+                    margin-bottom: 6px !important;
+                    font-weight: bold;
+                  }
+                  h4 {
+                    margin-top: 9px !important;
+                    margin-bottom: 4.5px !important;
+                    font-weight: bold;
+                  }
+                  p {
+                    margin-top: 6px !important;
+                    margin-bottom: 6px !important;
+                    max-width: 100%;
+                    word-wrap: break-word;
+                    overflow-wrap: break-word;
+                  }
+                  hr {
+                    margin: 12px 0 !important;
+                    border: none !important;
+                    border-top: 1px solid #cccccc !important;
+                    max-width: 100% !important;
+                  }
+                  ul, ol {
+                    max-width: 100%;
+                    word-wrap: break-word;
+                    overflow-wrap: break-word;
+                  }
+                  li {
+                    max-width: 100%;
+                    word-wrap: break-word;
+                    overflow-wrap: break-word;
+                  }
                   img { 
                     max-width: 100%; 
                     height: auto;
