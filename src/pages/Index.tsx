@@ -1,984 +1,693 @@
-import React, { useState, useRef, useEffect } from 'react';
-import { Download, Copy, Edit3, Eye, Sparkles, Undo2, Redo2, Brain } from 'lucide-react';
+import React, { useState } from 'react';
+import { FileText, Upload, Scissors, ScanText, Sparkles, X, Download, Image as ImageIcon } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { Card } from '@/components/ui/card';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { useToast } from '@/hooks/use-toast';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { Editor } from '@tinymce/tinymce-react';
-import { MCQGenerator } from '@/components/MCQGenerator';
-import { Document, Packer, Paragraph, TextRun, HeadingLevel, AlignmentType, ImageRun, Table, TableRow, TableCell } from 'docx';
-import { saveAs } from 'file-saver';
+import { Progress } from '@/components/ui/progress';
+import { PDFViewer } from '@/components/PDFViewer';
+import { OCRProcessor } from '@/components/OCRProcessor';
+import { NoteGenerator } from '@/components/NoteGenerator';
+import { NotesEditor } from '@/components/NotesEditor';
+import { AIChatbot } from '@/components/AIChatbot';
+import { ImageUploader } from '@/components/ImageUploader';
+import { ImageSequenceManager } from '@/components/ImageSequenceManager';
+import { ImageViewer } from '@/components/ImageViewer';
+import { ImageOCRProcessor } from '@/components/ImageOCRProcessor';
+import { arrangeImagesIntoA4Pages } from '@/utils/imageToA4';
+import { parseDocxFile, isDocxFile } from '@/utils/docxParser';
+import { useToast } from '@/hooks/use-toast';
 
-// Helper function to fetch image as ArrayBuffer
-const fetchImageAsArrayBuffer = async (src: string): Promise<ArrayBuffer | null> => {
-  try {
-    if (src.startsWith('data:')) {
-      // Handle base64 data URLs
-      const base64Data = src.split(',')[1];
-      const binaryString = atob(base64Data);
-      const bytes = new Uint8Array(binaryString.length);
-      for (let i = 0; i < binaryString.length; i++) {
-        bytes[i] = binaryString.charCodeAt(i);
-      }
-      return bytes.buffer;
-    } else {
-      // Handle regular URLs
-      const response = await fetch(src);
-      return await response.arrayBuffer();
-    }
-  } catch (error) {
-    console.error('Failed to fetch image:', error);
-    return null;
-  }
-};
-
-// Helper to get image dimensions
-const getImageDimensions = (src: string): Promise<{ width: number; height: number }> => {
-  return new Promise((resolve) => {
-    const img = new Image();
-    img.onload = () => {
-      resolve({ width: img.naturalWidth, height: img.naturalHeight });
-    };
-    img.onerror = () => {
-      resolve({ width: 400, height: 300 }); // Default dimensions
-    };
-    img.src = src;
-  });
-};
-
-interface NotesEditorProps {
-  content: string;
-  onContentChange: (content: string) => void;
-  ocrTexts?: string[];
-  uploadMode?: 'pdf' | 'image' | 'docx' | null;
-  docxContent?: string;
+interface ImageItem {
+  id: string;
+  file: File;
+  url: string;
 }
 
-export const NotesEditor = ({ content, onContentChange, ocrTexts = [], uploadMode = null, docxContent = '' }: NotesEditorProps) => {
-  const [activeTab, setActiveTab] = useState<'preview' | 'edit'>('preview');
-  const [isTouchingUp, setIsTouchingUp] = useState(false);
-  const [contentHistory, setContentHistory] = useState<string[]>([]);
-  const [historyIndex, setHistoryIndex] = useState(-1);
-  const [showMCQ, setShowMCQ] = useState(false);
-  const [showDownloadDialog, setShowDownloadDialog] = useState(false);
-  const [downloadFilename, setDownloadFilename] = useState('medical-notes');
+
+const Index = () => {
   const { toast } = useToast();
-  const editorRef = useRef<any>(null);
-  const historyRef = useRef<{ history: string[]; index: number }>({ history: [], index: -1 });
+  const [uploadMode, setUploadMode] = useState<'pdf' | 'image' | 'docx' | null>(null);
+  
+  // PDF states
+  const [pdfFile, setPdfFile] = useState<File | null>(null);
+  const [totalPages, setTotalPages] = useState(0);
+  const [pageRanges, setPageRanges] = useState('');
+  const [tempPageRanges, setTempPageRanges] = useState('');
+  const [showSplitInput, setShowSplitInput] = useState(false);
+  
+  // Image states
+  const [images, setImages] = useState<ImageItem[]>([]);
+  const [showImageManager, setShowImageManager] = useState(false);
+  const [a4Pages, setA4Pages] = useState<HTMLCanvasElement[]>([]);
+  const [isArrangingPages, setIsArrangingPages] = useState(false);
+  
+  // Common states
+  const [isOCRProcessing, setIsOCRProcessing] = useState(false);
+  const [ocrTexts, setOcrTexts] = useState<string[]>([]);
+  const [isGeneratingNotes, setIsGeneratingNotes] = useState(false);
+  const [generatedNotes, setGeneratedNotes] = useState('');
+  const [showNotes, setShowNotes] = useState(false);
+  const [ocrProgress, setOcrProgress] = useState(0);
+  const [ocrCurrentPage, setOcrCurrentPage] = useState(0);
+  const [notesProgress, setNotesProgress] = useState(0);
+  const [notesCurrentPage, setNotesCurrentPage] = useState(0);
+  
+  // DOCX states
+  const [isParsingDocx, setIsParsingDocx] = useState(false);
 
-  useEffect(() => {
-    historyRef.current = { history: contentHistory, index: historyIndex };
-  }, [contentHistory, historyIndex]);
-
-  useEffect(() => {
-    if (content && contentHistory.length === 0) {
-      setContentHistory([content]);
-      setHistoryIndex(0);
-    }
-  }, [content]);
-
-  // TOUCHUP FUNCTIONALITY - Enhance and format existing notes
-  const handleTouchup = async () => {
-    const apiKey = import.meta.env.VITE_GROQ_API_KEY_X || import.meta.env.VITE_GROQ_API_KEY;
-    
-    if (!apiKey) {
-      toast({
-        title: 'API Key Missing',
-        description: 'Please add VITE_GROQ_API_KEY_X in repo secrets or VITE_GROQ_API_KEY in .env for local dev.',
-        variant: 'destructive'
-      });
-      return;
-    }
-
-    const currentContent = content;
-    const { history: currentHistory, index: currentIndex } = historyRef.current;
-    const lastEntry = currentHistory[currentIndex];
-    
-    if (currentContent !== lastEntry) {
-      const newHistory = currentHistory.slice(0, currentIndex + 1);
-      newHistory.push(currentContent);
-      const newIndex = newHistory.length - 1;
-      setContentHistory(newHistory);
-      setHistoryIndex(newIndex);
-      historyRef.current = { history: newHistory, index: newIndex };
-    }
-
-    setIsTouchingUp(true);
-
-    try {
-      // NEW TOUCHUP PROMPT
-      const touchupSystemPrompt = `You are an expert **medical content enhancer and formatter**. Your task is to transform raw or unstructured medical notes into **perfectly formatted, hierarchically organized, and visually rich HTML content**, while **preserving every medical detail and meaning**.
-
-⚕️ **CORE OBJECTIVES**
-- Preserve ALL medical accuracy: every drug name, dosage, symptom, diagnosis, sign, and mechanism.
-- Maintain technical medical language — never oversimplify or alter meaning.
-- Restructure and reformat content to enhance clarity, flow, and readability.
-- Ensure professional tone suitable for MBBS-level or higher medical learning.
-- Convert long sentences into two or more short, clear bullet points.
-
-
----
-
-### 🏥 STRUCTURAL ENHANCEMENT
-1. Create clear and logical **hierarchical headings**:
-   - Use **<h1>** for main topics (e.g., Asthma, Myocardial Infarction)
-   - Use **<h2>** for subtopics (e.g., Etiology, Pathophysiology)
-   - Use **<h3>** for finer details (e.g., Symptoms, Diagnosis)
-2. **Combine or rearrange sections** when two headings represent the same or closely related topic.
-3. Group related ideas logically (e.g., etiology, symptoms, diagnosis, management).
-4. Insert **<hr>** between major sections for visual clarity.
-5. Ensure consistent spacing and indentation throughout.
-6. **Convert long or complex sentences** into multiple concise bullet points for better readability.
-
----
-
-### 💊 CONTENT OPTIMIZATION
-1. Remove redundant or repetitive text while retaining **all unique medical information**.
-2. Add smooth **transitions** between related sections.
-3. Maintain or slightly improve **academic tone and logical flow**.
-4. Correct minor inconsistencies or disorganized sequences.
-5. Preserve medical hierarchy: **Definition → Causes → Pathophysiology → Clinical Features → Diagnosis → Management → Complications → Prognosis.**
-6. When presenting multiple facts or subpoints, use a **three-level bullet system**.
-
-7. **EMOJI USAGE:** always used as prefixes, never used after following text
-   - **H1 headings:** Use ❤️, 🩺, 💊, 🧬, 🔬, 🏥 (medical emojis)
-   - **H2 headings:** Use 🔹, 💪, 💨, 💓, 🩺 (relevant emojis)
-   - **Bullet Level 1:** 🔹 or 📌
-   - **Bullet Level 2:** 🔸 or 🧠
-   - **Bullet Level 3:** ✨ or 💡
-   - **STEPS or NUMBERIC Bullet Points:** 1️⃣,2️⃣,3️⃣,....etc.
-   
-
-8. Combine **structural emoji hierarchy** with **automatic contextual emojis**:
-   - Automatically select relevant emojis based on section keywords or topic meaning.  
-     Example: 🧬 for "Etiology", 🤒 for "Symptoms", 💊 for "Treatment", ⚠️ for "Complications", etc.
-   - Do not require a predefined list; the model should intelligently choose appropriate emojis.
-
----
-
-### 🩸 FORMATTING REQUIREMENTS
-1. Use these HTML tags only:
-   - **Headings:** <h1>, <h2>, <h3>, <h4>
-   - **Text:** <p>, <strong>, <br>, <ul>, <li>, <hr>
-2. Highlight important medical concepts, drugs, and keywords with **<strong>**.
-3. Automatically apply **relevant medical emojis** based on topic or keyword context.
-4. Maintain professional formatting with proper spacing (<br>).
-5. Ensure bullet hierarchy and emoji structure are visually clear and consistent.
-6. No markdown or commentary — **return only the enhanced HTML output**.
-
----
-
-### ✅ OUTPUT REQUIREMENT
-Return **ONLY** the enhanced and formatted HTML content — clean, structured, and ready for web publishing. Include:
-- Hierarchical headings with emojis.
-- Three-level bullet structure.
-- Automatically assigned contextual emojis.
-- All medical accuracy preserved.
-`;
-
+  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file && file.type === 'application/pdf') {
+      const fileSizeMB = file.size / (1024 * 1024);
       
-      const response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${apiKey}`
-        },
-        body: JSON.stringify({
-          // DIFFERENT MODEL FOR TOUCHUP
-          model: 'llama-3.3-70b-versatile',
-          messages: [
-            { role: 'system', content: touchupSystemPrompt },
-            { role: 'user', content: `Please enhance and format these medical notes while preserving all medical accuracy:\n\n${currentContent}` }
-          ],
-          temperature: 0.5, // Lower temperature for more consistent medical formatting
-          max_tokens: 8192, // Higher token limit for comprehensive notes
-          top_p: 0.9
-        })
-      });
-
-      if (!response.ok) {
-        throw new Error(`API request failed: ${response.statusText}`);
+      if (fileSizeMB > 50) {
+        const confirmUpload = window.confirm(
+          `⚠️ Large File Warning\n\n` +
+          `File size: ${fileSizeMB.toFixed(2)} MB\n\n` +
+          `Large PDFs may:\n` +
+          `• Take longer to load\n` +
+          `• Use more memory\n` +
+          `• Slow down performance\n\n` +
+          `Recommended: Use smaller files or select specific page ranges.\n\n` +
+          `Do you want to continue?`
+        );
+        
+        if (!confirmUpload) {
+          e.target.value = '';
+          return;
+        }
       }
-
-      const data = await response.json();
-      const touchedUpContent = data.choices[0]?.message?.content || currentContent;
-
-      const { history: latestHistory, index: latestIndex } = historyRef.current;
-      const finalHistory = latestHistory.slice(0, latestIndex + 1);
-      finalHistory.push(touchedUpContent);
-      const finalIndex = finalHistory.length - 1;
-      setContentHistory(finalHistory);
-      setHistoryIndex(finalIndex);
-      historyRef.current = { history: finalHistory, index: finalIndex };
-
-      onContentChange(touchedUpContent);
       
-      toast({
-        title: 'Touchup Complete!',
-        description: 'Your notes have been professionally formatted and enhanced.',
-      });
+      if (fileSizeMB > 500) {
+        alert(
+          `❌ File Too Large\n\n` +
+          `File size: ${fileSizeMB.toFixed(2)} MB\n\n` +
+          `Maximum supported size: 500 MB\n\n` +
+          `Please:\n` +
+          `• Use a smaller PDF\n` +
+          `• Split the PDF into smaller parts\n` +
+          `• Compress the PDF file`
+        );
+        e.target.value = '';
+        return;
+      }
+      
+      setUploadMode('pdf');
+      setPdfFile(file);
+      setPageRanges('');
+      setOcrTexts([]);
+      setGeneratedNotes('');
+      setShowNotes(false);
+    }
+  };
+
+  const handleDocxSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file && isDocxFile(file)) {
+      setIsParsingDocx(true);
+      try {
+        const htmlContent = await parseDocxFile(file);
+        setGeneratedNotes(htmlContent);
+        setShowNotes(true);
+        setUploadMode('docx');
+        setOcrTexts([]);
+        toast({
+          title: 'Success',
+          description: 'DOCX file loaded successfully. You can now edit the notes.',
+        });
+      } catch (error) {
+        console.error('Error parsing docx:', error);
+        toast({
+          title: 'Error',
+          description: 'Failed to parse the DOCX file. Please ensure it is a valid Word document.',
+          variant: 'destructive',
+        });
+      } finally {
+        setIsParsingDocx(false);
+      }
+    }
+  };
+
+  const handleImagesSelect = (files: File[]) => {
+    const newImages: ImageItem[] = files.map(file => ({
+      id: Math.random().toString(36).substr(2, 9),
+      file,
+      url: URL.createObjectURL(file)
+    }));
+    
+    setImages(prev => [...prev, ...newImages]);
+    setShowImageManager(true);
+    setUploadMode('image');
+  };
+
+  const handleArrangeImages = async () => {
+    if (images.length === 0) return;
+    
+    setIsArrangingPages(true);
+    try {
+      const imageData = images.map(img => ({ file: img.file, url: img.url }));
+      const pages = await arrangeImagesIntoA4Pages(imageData);
+      setA4Pages(pages);
+      setShowImageManager(false);
     } catch (error) {
-      console.error('Touchup error:', error);
-      toast({
-        title: 'Touchup Failed',
-        description: error instanceof Error ? error.message : 'Failed to touchup notes. Please try again.',
-        variant: 'destructive'
-      });
+      console.error('Error arranging images:', error);
+      alert('Failed to arrange images into pages. Please try again.');
     } finally {
-      setIsTouchingUp(false);
+      setIsArrangingPages(false);
     }
   };
 
-  const handleUndo = () => {
-    if (historyIndex > 0) {
-      const newIndex = historyIndex - 1;
-      setHistoryIndex(newIndex);
-      onContentChange(contentHistory[newIndex]);
-      toast({
-        title: 'Undo Successful',
-        description: 'Reverted to previous version.'
-      });
-    } else {
-      toast({
-        title: 'Nothing to Undo',
-        description: 'No previous version available.',
-        variant: 'destructive'
-      });
-    }
-  };
-
-  const handleRedo = () => {
-    if (historyIndex < contentHistory.length - 1) {
-      const newIndex = historyIndex + 1;
-      setHistoryIndex(newIndex);
-      onContentChange(contentHistory[newIndex]);
-      toast({
-        title: 'Redo Successful',
-        description: 'Restored next version.'
-      });
-    } else {
-      toast({
-        title: 'Nothing to Redo',
-        description: 'No next version available.',
-        variant: 'destructive'
-      });
-    }
-  };
-
-  const handleDownload = () => {
-    setShowDownloadDialog(true);
-  };
-
-  const parseHtmlToDocxElements = async (htmlContent: string): Promise<any[]> => {
-    const parser = new DOMParser();
-    const doc = parser.parseFromString(htmlContent, 'text/html');
-    const elements: any[] = [];
-
-    const processNode = async (node: Node, depth: number = 0): Promise<any[]> => {
-      const result: any[] = [];
-      
-      if (node.nodeType === Node.TEXT_NODE) {
-        const text = node.textContent?.trim();
-        if (text) {
-          result.push(new Paragraph({
-            children: [new TextRun({ text, size: 24 })],
-          }));
-        }
-        return result;
+  const validatePageRanges = (ranges: string): boolean => {
+    if (!ranges.trim()) return false;
+    
+    // Valid formats: "1-3", "4-9", "1,2,3", "1-3,5,7-9"
+    const rangePattern = /^(\d+(-\d+)?)(,\s*\d+(-\d+)?)*$/;
+    if (!rangePattern.test(ranges.trim())) return false;
+    
+    // Validate page numbers are within bounds
+    const parts = ranges.split(',').map(p => p.trim());
+    for (const part of parts) {
+      if (part.includes('-')) {
+        const [start, end] = part.split('-').map(Number);
+        if (start < 1 || end > totalPages || start > end) return false;
+      } else {
+        const pageNum = Number(part);
+        if (pageNum < 1 || pageNum > totalPages) return false;
       }
-
-      if (node.nodeType === Node.ELEMENT_NODE) {
-        const element = node as Element;
-        const tagName = element.tagName.toLowerCase();
-        const textContent = element.textContent?.trim() || '';
-
-        switch (tagName) {
-          case 'img': {
-            const src = element.getAttribute('src');
-            if (src) {
-              const imageData = await fetchImageAsArrayBuffer(src);
-              if (imageData) {
-                // Get original dimensions
-                const originalDimensions = await getImageDimensions(src);
-                
-                // Get inline styles for width/height if specified
-                const styleWidth = element.getAttribute('width') || (element as HTMLElement).style?.width;
-                const styleHeight = element.getAttribute('height') || (element as HTMLElement).style?.height;
-                
-                let width = originalDimensions.width;
-                let height = originalDimensions.height;
-                
-                // Parse style dimensions
-                if (styleWidth) {
-                  const parsedWidth = parseInt(styleWidth.toString().replace('px', ''), 10);
-                  if (!isNaN(parsedWidth)) width = parsedWidth;
-                }
-                if (styleHeight) {
-                  const parsedHeight = parseInt(styleHeight.toString().replace('px', ''), 10);
-                  if (!isNaN(parsedHeight)) height = parsedHeight;
-                }
-                
-                // Scale down if too large (max 600px width for docx)
-                const maxWidth = 600;
-                if (width > maxWidth) {
-                  const scale = maxWidth / width;
-                  width = maxWidth;
-                  height = Math.round(height * scale);
-                }
-                
-                result.push(new Paragraph({
-                  children: [
-                    new ImageRun({
-                      data: imageData,
-                      transformation: {
-                        width,
-                        height,
-                      },
-                      type: 'png',
-                    }),
-                  ],
-                  spacing: { before: 200, after: 200 },
-                }));
-              }
-            }
-            break;
-          }
-          case 'h1':
-            result.push(new Paragraph({
-              children: [new TextRun({ text: textContent, bold: true, size: 36, color: '0891b2' })],
-              heading: HeadingLevel.HEADING_1,
-              spacing: { before: 400, after: 200 },
-            }));
-            break;
-          case 'h2':
-            result.push(new Paragraph({
-              children: [new TextRun({ text: textContent, bold: true, size: 32, color: '9333ea' })],
-              heading: HeadingLevel.HEADING_2,
-              spacing: { before: 300, after: 150 },
-            }));
-            break;
-          case 'h3':
-            result.push(new Paragraph({
-              children: [new TextRun({ text: textContent, bold: true, size: 28 })],
-              heading: HeadingLevel.HEADING_3,
-              spacing: { before: 200, after: 100 },
-            }));
-            break;
-          case 'h4':
-            result.push(new Paragraph({
-              children: [new TextRun({ text: textContent, bold: true, size: 26 })],
-              heading: HeadingLevel.HEADING_4,
-              spacing: { before: 150, after: 75 },
-            }));
-            break;
-          case 'p': {
-            const runs: any[] = [];
-            for (const child of Array.from(element.childNodes)) {
-              if (child.nodeType === Node.TEXT_NODE) {
-                const t = child.textContent || '';
-                if (t) runs.push(new TextRun({ text: t, size: 24 }));
-              } else if (child.nodeType === Node.ELEMENT_NODE) {
-                const el = child as Element;
-                const elTag = el.tagName.toLowerCase();
-                
-                // Handle inline images
-                if (elTag === 'img') {
-                  const imgSrc = el.getAttribute('src');
-                  if (imgSrc) {
-                    const imgData = await fetchImageAsArrayBuffer(imgSrc);
-                    if (imgData) {
-                      const dims = await getImageDimensions(imgSrc);
-                      let w = dims.width;
-                      let h = dims.height;
-                      
-                      const sw = el.getAttribute('width') || (el as HTMLElement).style?.width;
-                      const sh = el.getAttribute('height') || (el as HTMLElement).style?.height;
-                      if (sw) {
-                        const pw = parseInt(sw.toString().replace('px', ''), 10);
-                        if (!isNaN(pw)) w = pw;
-                      }
-                      if (sh) {
-                        const ph = parseInt(sh.toString().replace('px', ''), 10);
-                        if (!isNaN(ph)) h = ph;
-                      }
-                      
-                      const maxW = 600;
-                      if (w > maxW) {
-                        const sc = maxW / w;
-                        w = maxW;
-                        h = Math.round(h * sc);
-                      }
-                      
-                      runs.push(new ImageRun({
-                        data: imgData,
-                        transformation: { width: w, height: h },
-                        type: 'png',
-                      }));
-                    }
-                  }
-                } else {
-                  const ct = el.textContent || '';
-                  if (elTag === 'strong' || elTag === 'b') {
-                    runs.push(new TextRun({ text: ct, bold: true, size: 24 }));
-                  } else if (elTag === 'em' || elTag === 'i') {
-                    runs.push(new TextRun({ text: ct, italics: true, size: 24 }));
-                  } else {
-                    runs.push(new TextRun({ text: ct, size: 24 }));
-                  }
-                }
-              }
-            }
-            if (runs.length > 0) {
-              result.push(new Paragraph({
-                children: runs,
-                spacing: { before: 100, after: 100 },
-              }));
-            }
-            break;
-          }
-          case 'ul':
-          case 'ol': {
-            // Numeric emoji map for ordered lists
-            const numberEmojis = ['0️⃣','1️⃣','2️⃣','3️⃣','4️⃣','5️⃣','6️⃣','7️⃣','8️⃣','9️⃣','🔟'];
-          
-            for (const [idx, li] of Array.from(element.querySelectorAll(':scope > li')).entries()) {
-              let bulletText: string;
-          
-              if (tagName === 'ol') {
-                const num = idx + 1;
-                const emoji = numberEmojis[num] || `${num}.`;
-                bulletText = `${emoji} `;
-              } else {
-                bulletText = '• ';
-              }
-          
-              const liRuns: any[] = [];
-              // Calculate proper left indent: base margin + depth-based indentation
-              const baseMargin = 720; // 0.5 inch = 720 twips
-              const depthIndent = depth * 720; // 0.5 inch per level
-              const totalIndent = baseMargin + depthIndent;
-          
-              for (const child of Array.from(li.childNodes)) {
-                if (child.nodeType === Node.TEXT_NODE) {
-                  const t = child.textContent?.trim() || '';
-                  if (t) liRuns.push(new TextRun({ text: t, size: 24 }));
-                } 
-                else if (child.nodeType === Node.ELEMENT_NODE) {
-                  const el = child as Element;
-                  const elTag = el.tagName.toLowerCase();
-          
-                  if (elTag === 'ul' || elTag === 'ol') {
-                    continue; // nested handled later
-                  }
-          
-                  if (elTag === 'img') {
-                    const imgSrc = el.getAttribute('src');
-                    if (imgSrc) {
-                      const imgData = await fetchImageAsArrayBuffer(imgSrc);
-                      if (imgData) {
-                        const dims = await getImageDimensions(imgSrc);
-                        let w = dims.width;
-                        let h = dims.height;
-          
-                        const maxW = 500;
-                        if (w > maxW) {
-                          const sc = maxW / w;
-                          w = maxW;
-                          h = Math.round(h * sc);
-                        }
-          
-                        liRuns.push(
-                          new ImageRun({
-                            data: imgData,
-                            transformation: { width: w, height: h },
-                            type: 'png',
-                          })
-                        );
-                      }
-                    }
-                  } else {
-                    const ct = el.textContent || '';
-                    if (elTag === 'strong' || elTag === 'b') {
-                      liRuns.push(new TextRun({ text: ct, bold: true, size: 24 }));
-                    } else {
-                      liRuns.push(new TextRun({ text: ct, size: 24 }));
-                    }
-                  }
-                }
-              }
-          
-              if (liRuns.length > 0) {
-                result.push(
-                  new Paragraph({
-                    children: [new TextRun({ text: bulletText, size: 24 }), ...liRuns],
-                    indent: { left: totalIndent, hanging: 360 },
-                    spacing: { before: 50, after: 50 },
-                  })
-                );
-              }
-          
-              // Process nested <ul> or <ol>
-              for (const nestedList of Array.from(li.querySelectorAll(':scope > ul, :scope > ol'))) {
-                result.push(...await processNode(nestedList, depth + 1));
-              }
-            }
-          } // ✅ IMPORTANT: closes block opened after "case 'ol': {"
-          break;
-          case 'table': {
-            const rows: any[] = [];
-            
-            const trs = Array.from(element.querySelectorAll('tr'));
-            for (const tr of trs) {
-              const cells: any[] = [];
-              const tds = Array.from(tr.querySelectorAll('td, th'));
-              
-              for (const td of tds) {
-                const cellContent: any[] = [];
-                const cellText = td.textContent?.trim() || '';
-                if (cellText) {
-                  cellContent.push(new Paragraph({
-                    children: [new TextRun({ text: cellText, size: 24 })]
-                  }));
-                } else {
-                  cellContent.push(new Paragraph({ children: [new TextRun({ text: '' })] }));
-                }
-                
-                cells.push(new TableCell({
-                  children: cellContent,
-                  shading: { fill: td.tagName.toLowerCase() === 'th' ? 'E0E0E0' : 'FFFFFF' }
-                }));
-              }
-              
-              rows.push(new TableRow({ children: cells }));
-            }
-            
-            if (rows.length > 0) {
-              result.push(new Table({
-                rows: rows,
-                width: { size: 100, type: 'pct' }
-              }));
-            }
-            break;
-          }
-          case 'hr':
-            result.push(new Paragraph({
-              children: [new TextRun({ text: '─'.repeat(50), size: 24, color: 'cccccc' })],
-              spacing: { before: 200, after: 200 },
-              alignment: AlignmentType.CENTER,
-            }));
-            break;
-          case 'br':
-            result.push(new Paragraph({ children: [] }));
-            break;
-          default:
-            for (const child of Array.from(element.childNodes)) {
-              result.push(...await processNode(child, depth));
-            }
-        }
-      }
-
-      return result;
-    };
-
-    for (const child of Array.from(doc.body.childNodes)) {
-      elements.push(...await processNode(child));
     }
-
-    return elements;
+    return true;
   };
 
-  const downloadAsDocx = async () => {
-    try {
-      const docElements = await parseHtmlToDocxElements(content);
-      
-      const doc = new Document({
-        sections: [{
-          properties: {},
-          children: docElements as any,
-        }],
-      });
-
-      const blob = await Packer.toBlob(doc);
-      const filename = downloadFilename.trim() || 'medical-notes';
-      saveAs(blob, `${filename}.docx`);
-      
-      setShowDownloadDialog(false);
-      setDownloadFilename('medical-notes');
-      
-      toast({
-        title: 'Download Complete',
-        description: 'Your notes have been downloaded as an editable Word document.',
-      });
-    } catch (error) {
-      console.error('Download error:', error);
-      toast({
-        title: 'Download Failed',
-        description: 'Failed to create the document. Please try again.',
-        variant: 'destructive',
-      });
+  const handleSplitSubmit = () => {
+    if (validatePageRanges(tempPageRanges)) {
+      setPageRanges(tempPageRanges);
+      setShowSplitInput(false);
+    } else {
+      alert(`Invalid page range! Please use format like "1-3" or "1,2,3" or "1-3,5-7"\nTotal pages: ${totalPages}`);
     }
   };
 
-  const handleCopy = async () => {
-    try {
-      await navigator.clipboard.writeText(content);
-      toast({
-        title: 'Copied!',
-        description: 'Notes copied to clipboard.'
-      });
-    } catch (error) {
-      toast({
-        title: 'Copy Failed',
-        description: 'Failed to copy notes to clipboard.',
-        variant: 'destructive'
-      });
-    }
+  const handleOCRComplete = (texts: string[]) => {
+    setOcrTexts(texts);
+    setIsOCRProcessing(false);
+    setOcrProgress(0);
+    setOcrCurrentPage(0);
   };
 
-  if (showMCQ) {
-    const contentForMCQ = uploadMode === 'docx' && docxContent ? [docxContent] : ocrTexts;
-    return <MCQGenerator ocrTexts={contentForMCQ} onClose={() => setShowMCQ(false)} />;
-  }
+  const handleOCRProgress = (progress: number, currentPage: number) => {
+    setOcrProgress(progress);
+    setOcrCurrentPage(currentPage);
+  };
+
+  const handleNotesGenerated = (notes: string) => {
+    setGeneratedNotes(notes);
+    setShowNotes(true);
+    setIsGeneratingNotes(false);
+    setNotesProgress(0);
+    setNotesCurrentPage(0);
+  };
+
+  const handleNotesProgress = (progress: number, currentPage: number) => {
+    setNotesProgress(progress);
+    setNotesCurrentPage(currentPage);
+  };
+
+  const resetApp = () => {
+    setUploadMode(null);
+    setPdfFile(null);
+    setTotalPages(0);
+    setPageRanges('');
+    setShowSplitInput(false);
+    setIsOCRProcessing(false);
+    setOcrTexts([]);
+    setIsGeneratingNotes(false);
+    setGeneratedNotes('');
+    setShowNotes(false);
+    setIsParsingDocx(false);
+    images.forEach(img => URL.revokeObjectURL(img.url));
+    setImages([]);
+    setShowImageManager(false);
+    setA4Pages([]);
+  };
 
   return (
-    <>
-      <Dialog open={showDownloadDialog} onOpenChange={setShowDownloadDialog}>
-        <DialogContent className="sm:max-w-[425px]">
-          <DialogHeader>
-            <DialogTitle>Download Notes</DialogTitle>
-          </DialogHeader>
-          <div className="grid gap-4 py-4">
-            <div className="grid gap-2">
-              <Label htmlFor="filename">File Name</Label>
-              <Input
-                id="filename"
-                value={downloadFilename}
-                onChange={(e) => setDownloadFilename(e.target.value)}
-                placeholder="Enter file name"
-                data-testid="input-download-filename"
+    <div className="min-h-screen bg-gradient-to-br from-background via-primary/5 to-accent/5 flex flex-col">
+      {/* Compact Header */}
+      <header className="border-b bg-card/80 backdrop-blur-sm sticky top-0 z-50 shadow-sm">
+        <div className="container mx-auto px-3 py-3 sm:px-4 sm:py-4">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2 sm:gap-3">
+              <div className="flex h-8 w-8 sm:h-10 sm:w-10 items-center justify-center rounded-lg bg-gradient-to-br from-primary to-primary/80 shadow-lg">
+                <FileText className="h-4 w-4 sm:h-6 sm:w-6 text-primary-foreground" />
+              </div>
+              <div>
+                <h1 className="text-lg sm:text-2xl font-bold text-foreground">MedNotes AI</h1>
+                <p className="text-xs sm:text-sm text-muted-foreground hidden sm:block">
+                  Transform Medical PDFs into Structured Notes
+                </p>
+              </div>
+            </div>
+            {(pdfFile || images.length > 0) && (
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={resetApp}
+                className="gap-2"
+                data-testid="button-reset"
+              >
+                <X className="h-4 w-4" />
+                <span className="hidden sm:inline">New Upload</span>
+              </Button>
+            )}
+          </div>
+        </div>
+      </header>
+
+      {/* Main Content */}
+      <main className="flex-1 overflow-hidden">
+        {!uploadMode ? (
+          /* Full Screen Upload - Mode Selection */
+          <div className="h-full flex items-center justify-center p-4">
+            <div className="w-full max-w-4xl">
+              <div className="text-center mb-8">
+                <div className="flex justify-center mb-4">
+                  <div className="h-20 w-20 rounded-full bg-primary/10 flex items-center justify-center">
+                    <Upload className="h-10 w-10 text-primary" />
+                  </div>
+                </div>
+                <h2 className="text-2xl sm:text-3xl font-bold mb-2">Upload Medical Documents</h2>
+                <p className="text-muted-foreground">Choose PDF, images, or DOCX notes to start</p>
+              </div>
+              
+              <div className="grid md:grid-cols-3 gap-6">
+                {/* PDF Upload */}
+                <label
+                  htmlFor="pdf-upload"
+                  className="block w-full cursor-pointer"
+                  data-testid="label-upload"
+                >
+                  <div className="border-2 border-dashed border-primary/30 rounded-2xl p-8 hover:border-primary/60 hover:bg-primary/5 transition-all duration-200 text-center h-full">
+                    <FileText className="h-12 w-12 mx-auto mb-4 text-primary" />
+                    <p className="text-lg font-medium mb-2">PDF Document</p>
+                    <p className="text-sm text-muted-foreground">Upload a PDF file</p>
+                    <input
+                      id="pdf-upload"
+                      type="file"
+                      accept="application/pdf"
+                      onChange={handleFileSelect}
+                      className="hidden"
+                      data-testid="input-pdf-upload"
+                    />
+                  </div>
+                </label>
+
+                {/* Image Upload */}
+                <div onClick={() => document.getElementById('initial-image-upload')?.click()} className="cursor-pointer">
+                  <div className="border-2 border-dashed border-accent/30 rounded-2xl p-8 hover:border-accent/60 hover:bg-accent/5 transition-all duration-200 text-center h-full">
+                    <ImageIcon className="h-12 w-12 mx-auto mb-4 text-accent" />
+                    <p className="text-lg font-medium mb-2">Medical Images</p>
+                    <p className="text-sm text-muted-foreground">Upload one or multiple images</p>
+                    <input
+                      id="initial-image-upload"
+                      type="file"
+                      accept="image/*"
+                      multiple
+                      onChange={(e) => {
+                        const files = e.target.files;
+                        if (files && files.length > 0) {
+                          handleImagesSelect(Array.from(files));
+                        }
+                      }}
+                      className="hidden"
+                    />
+                  </div>
+                </div>
+
+                {/* DOCX Upload */}
+                <label
+                  htmlFor="docx-upload"
+                  className="block w-full cursor-pointer"
+                  data-testid="label-docx-upload"
+                >
+                  <div className="border-2 border-dashed border-emerald-300/30 rounded-2xl p-8 hover:border-emerald-300/60 hover:bg-emerald-300/5 transition-all duration-200 text-center h-full">
+                    <FileText className="h-12 w-12 mx-auto mb-4 text-emerald-600 dark:text-emerald-400" />
+                    <p className="text-lg font-medium mb-2">Word Document</p>
+                    <p className="text-sm text-muted-foreground">Upload a DOCX file to edit</p>
+                    <input
+                      id="docx-upload"
+                      type="file"
+                      accept=".docx,application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+                      onChange={handleDocxSelect}
+                      disabled={isParsingDocx}
+                      className="hidden"
+                      data-testid="input-docx-upload"
+                    />
+                  </div>
+                </label>
+              </div>
+            </div>
+          </div>
+        ) : showImageManager ? (
+          /* Image Management View */
+          <div className="h-full p-4">
+            <div className="h-full max-w-4xl mx-auto space-y-4">
+              <ImageSequenceManager 
+                images={images}
+                onImagesChange={setImages}
+                onAddMore={() => document.getElementById('add-more-images')?.click()}
               />
-              <p className="text-sm text-muted-foreground">
-                The file will be saved as: {downloadFilename || 'medical-notes'}.docx
-              </p>
+              <input
+                id="add-more-images"
+                type="file"
+                accept="image/*"
+                multiple
+                onChange={(e) => {
+                  const files = e.target.files;
+                  if (files && files.length > 0) {
+                    handleImagesSelect(Array.from(files));
+                  }
+                }}
+                className="hidden"
+              />
+              <div className="flex gap-3">
+                <Button
+                  onClick={handleArrangeImages}
+                  disabled={images.length === 0 || isArrangingPages}
+                  className="flex-1 gap-2"
+                  size="lg"
+                >
+                  {isArrangingPages ? (
+                    <>Processing...</>
+                  ) : (
+                    <>Arrange into Pages & Continue</>
+                  )}
+                </Button>
+              </div>
             </div>
           </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setShowDownloadDialog(false)} data-testid="button-cancel-download">
-              Cancel
-            </Button>
-            <Button onClick={downloadAsDocx} data-testid="button-confirm-download">
-              <Download className="h-4 w-4 mr-2" />
-              Download
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
-      <Card className="h-full shadow-lg">
-        <div className="border-b p-3 sm:p-4">
-          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-            <h3 className="font-semibold text-foreground shrink-0">Medical Notes</h3>
-            <div className="flex flex-wrap gap-1.5 sm:gap-2">
-              <Button
-                onClick={handleTouchup}
-                variant="outline"
-                size="sm"
-                className="gap-1 sm:gap-2 text-xs sm:text-sm px-2 sm:px-3"
-                disabled={isTouchingUp || !content}
-                data-testid="button-touchup-notes"
-              >
-                <Sparkles className="h-3 w-3 sm:h-4 sm:w-4" />
-                <span className="hidden xs:inline">{isTouchingUp ? 'Touching up...' : 'Touchup'}</span>
-                <span className="xs:hidden">{isTouchingUp ? '...' : 'Touch'}</span>
-              </Button>
-              <Button
-                onClick={() => setShowMCQ(true)}
-                variant="outline"
-                size="sm"
-                className="gap-1 sm:gap-2 text-xs sm:text-sm px-2 sm:px-3"
-                disabled={uploadMode === 'docx' ? !docxContent : (!ocrTexts || ocrTexts.length === 0)}
-                data-testid="button-generate-mcqs"
-              >
-                <Brain className="h-3 w-3 sm:h-4 sm:w-4" />
-                <span className="hidden sm:inline">Generate MCQs</span>
-                <span className="sm:hidden">MCQs</span>
-              </Button>
-              <Button
-                onClick={handleUndo}
-                variant="outline"
-                size="sm"
-                className="gap-1 text-xs sm:text-sm px-2 sm:px-3"
-                disabled={historyIndex <= 0}
-                data-testid="button-undo-touchup"
-              >
-                <Undo2 className="h-3 w-3 sm:h-4 sm:w-4" />
-                <span className="hidden sm:inline">Undo</span>
-              </Button>
-              <Button
-                onClick={handleRedo}
-                variant="outline"
-                size="sm"
-                className="gap-1 text-xs sm:text-sm px-2 sm:px-3"
-                disabled={historyIndex >= contentHistory.length - 1}
-                data-testid="button-redo-touchup"
-              >
-                <Redo2 className="h-3 w-3 sm:h-4 sm:w-4" />
-                <span className="hidden sm:inline">Redo</span>
-              </Button>
-              <Button
-                onClick={handleCopy}
-                variant="outline"
-                size="sm"
-                className="gap-1 text-xs sm:text-sm px-2 sm:px-3"
-                data-testid="button-copy-notes"
-              >
-                <Copy className="h-3 w-3 sm:h-4 sm:w-4" />
-                <span className="hidden sm:inline">Copy</span>
-              </Button>
-              <Button
-                onClick={handleDownload}
-                variant="outline"
-                size="sm"
-                className="gap-1 text-xs sm:text-sm px-2 sm:px-3"
-                data-testid="button-download-notes"
-              >
-                <Download className="h-3 w-3 sm:h-4 sm:w-4" />
-                <span className="hidden sm:inline">Download</span>
-              </Button>
+        ) : showNotes ? (
+          /* Notes View */
+          <div className="h-full p-4">
+            <div className="h-full max-w-5xl mx-auto">
+              <NotesEditor
+                content={generatedNotes}
+                onContentChange={setGeneratedNotes}
+                ocrTexts={ocrTexts}
+                uploadMode={uploadMode}
+                docxContent={uploadMode === 'docx' ? generatedNotes : ''}
+              />
             </div>
           </div>
-        </div>
+        ) : uploadMode === 'pdf' && pdfFile ? (
+          /* PDF View with Toolbar */
+          <div className="h-full flex flex-col">
+            {/* Compact Toolbar */}
+            <div className="bg-card/80 backdrop-blur-sm border-b px-3 py-2 sm:px-4 sm:py-3">
+              <div className="max-w-7xl mx-auto">
+                <div className="flex flex-wrap items-center gap-2">
+                  {/* Split Button */}
+                  {!pageRanges && !showSplitInput && (
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => setShowSplitInput(true)}
+                      className="gap-2"
+                      data-testid="button-show-split"
+                    >
+                      <Scissors className="h-4 w-4" />
+                      <span className="hidden sm:inline">Split Pages</span>
+                      <span className="sm:hidden">Split</span>
+                    </Button>
+                  )}
 
-      <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as 'preview' | 'edit')} className="h-full">
-        <div className="border-b px-4">
-          <TabsList>
-            <TabsTrigger value="preview" className="gap-2" data-testid="tab-preview">
-              <Eye className="h-4 w-4" />
-              Preview
-            </TabsTrigger>
-            <TabsTrigger value="edit" className="gap-2" data-testid="tab-edit">
-              <Edit3 className="h-4 w-4" />
-              Editor
-            </TabsTrigger>
-          </TabsList>
-        </div>
+                  {/* Split Input */}
+                  {showSplitInput && !pageRanges && (
+                    <div className="flex items-center gap-2 flex-1 max-w-md">
+                      <Input
+                        placeholder="e.g., 1-5,7,10-12"
+                        value={tempPageRanges}
+                        onChange={(e) => setTempPageRanges(e.target.value)}
+                        className="h-9 text-sm"
+                        data-testid="input-page-ranges"
+                      />
+                      <Button size="sm" onClick={handleSplitSubmit} data-testid="button-split-submit">
+                        Apply
+                      </Button>
+                      <Button size="sm" variant="ghost" onClick={() => {
+                        setShowSplitInput(false);
+                        setTempPageRanges('');
+                      }}>
+                        <X className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  )}
 
-        <TabsContent value="preview" className="m-0 p-6">
-          <div
-            className="notes-preview"
-            dangerouslySetInnerHTML={{ __html: content }}
-            data-testid="notes-preview"
-          />
-        </TabsContent>
+                  {/* Page Info */}
+                  {pageRanges && (
+                    <div className="text-xs sm:text-sm text-muted-foreground bg-primary/5 px-3 py-1.5 rounded-md">
+                      Pages: {pageRanges}
+                    </div>
+                  )}
 
-        <TabsContent value="edit" className="m-0 p-4">
-          <div data-testid="rich-text-editor">
-            <Editor
-              apiKey={import.meta.env.VITE_TINY_API}
-              onInit={(_evt, editor) => editorRef.current = editor}
-              value={content}
-              onEditorChange={onContentChange}
-              init={{
-                height: 600,
-                menubar: true,
-                plugins: [
-                  'advlist', 'autolink', 'lists', 'link', 'image', 'charmap', 'preview',
-                  'anchor', 'searchreplace', 'visualblocks', 'code', 'fullscreen',
-                  'insertdatetime', 'media', 'table', 'code', 'help', 'wordcount'
-                ],
-                toolbar: 'undo redo | blocks | ' +
-                  'bold italic forecolor | alignleft aligncenter ' +
-                  'alignright alignjustify | bullist numlist outdent indent | ' +
-                  'removeformat | image media table | fontfamily | help',
-                content_style: `
-                  @font-face {
-                    font-family: 'Kalam';
-                    src: url('../../font/Kalam-Regular.ttf') format('truetype');
-                    font-weight: 400;
-                  }
-                  @font-face {
-                    font-family: 'Kalam Light';
-                    src: url('../../font/Kalam-Light.ttf') format('truetype');
-                    font-weight: 300;
-                  }
-                  @font-face {
-                    font-family: 'Kalam Bold';
-                    src: url('../../font/Kalam-Bold.ttf') format('truetype');
-                    font-weight: 700;
-                  }
-                  body { 
-                    font-family: Arial, sans-serif; 
-                    font-size: 14px;
-                    line-height: 1.6;
-                  }
-                  h1 {
-                    color: #0891b2 !important;
-                    margin-top: 24px !important;
-                    margin-bottom: 12px !important;
-                    font-weight: bold;
-                  }
-                  h2 {
-                    color: #9333ea !important;
-                    margin-top: 18px !important;
-                    margin-bottom: 9px !important;
-                    font-weight: bold;
-                  }
-                  h3 {
-                    margin-top: 12px !important;
-                    margin-bottom: 6px !important;
-                    font-weight: bold;
-                  }
-                  h4 {
-                    margin-top: 9px !important;
-                    margin-bottom: 4.5px !important;
-                    font-weight: bold;
-                  }
-                  p {
-                    margin-top: 6px !important;
-                    margin-bottom: 6px !important;
-                    max-width: 100%;
-                    word-wrap: break-word;
-                    overflow-wrap: break-word;
-                  }
-                  hr {
-                    margin: 12px 0 !important;
-                    border: none !important;
-                    border-top: 1px solid #cccccc !important;
-                    max-width: 100% !important;
-                  }
-                  ul, ol {
-                    max-width: 100%;
-                    word-wrap: break-word;
-                    overflow-wrap: break-word;
-                    margin-left: 1.5rem !important;
-                  }
-                  ul ul, ol ol {
-                    margin-left: 2rem !important;
-                  }
-                  ul ul ul, ol ol ol {
-                    margin-left: 2rem !important;
-                  }
-                  li {
-                    max-width: 100%;
-                    word-wrap: break-word;
-                    overflow-wrap: break-word;
-                    margin-bottom: 0.5rem !important;
-                  }
-                  img { 
-                    max-width: 100%; 
-                    height: auto;
-                    display: block;
-                    margin: 10px 0;
-                    cursor: pointer;
-                  }
-                  img:hover {
-                    opacity: 0.9;
-                    outline: 2px solid #0891b2;
-                  }
-                  table {
-                    border-collapse: collapse;
-                    width: 100%;
-                    margin: 12px 0;
-                  }
-                  td, th {
-                    border: 1px solid #cccccc;
-                    padding: 8px;
-                  }
-                  th {
-                    background-color: #f0f0f0;
-                    font-weight: bold;
-                  }
-                `,
-                placeholder: 'Your generated notes will appear here. Use the toolbar to format text, add images, and customize your notes...',
-                
-                // Font family options including Kalam handwritten fonts
-                font_formats: 
-                  'Arial=Arial, Helvetica, sans-serif;' +
-                  'Georgia=Georgia, serif;' +
-                  'Times New Roman=Times New Roman, Times, serif;' +
-                  'Courier New=Courier New, Courier, monospace;' +
-                  'Comic Sans MS=Comic Sans MS, cursive;' +
-                  'Trebuchet MS=Trebuchet MS, sans-serif;' +
-                  'Verdana=Verdana, sans-serif;' +
-                  'Impact=Impact, fantasy;' +
-                  'Tahoma=Tahoma, sans-serif;' +
-                  'Kalam Regular=Kalam, cursive;' +
-                  'Kalam Light=Kalam Light, cursive;' +
-                  'Kalam Bold=Kalam Bold, cursive;',
-                
-                // Image settings
-                image_advtab: true,
-                image_title: true,
-                image_description: true,
-                image_dimensions: true,
-                image_uploadtab: true,
-                
-                // Enable image resizing in editor
-                object_resizing: true,
-                resize_img_proportional: true,
-                
-                // Enable paste images
-                paste_data_images: true,
-                
-                // Auto upload settings
-                automatic_uploads: true,
-                file_picker_types: 'image',
-                images_reuse_filename: true,
-                
-                // Convert all images to base64
-                images_upload_handler: (blobInfo: any) => {
-                  return new Promise((resolve, reject) => {
-                    const reader = new FileReader();
-                    reader.onloadend = () => {
-                      if (typeof reader.result === 'string') {
-                        resolve(reader.result);
-                      } else {
-                        reject('Failed to convert image to base64');
-                      }
-                    };
-                    reader.onerror = () => reject('Failed to read image file');
-                    reader.readAsDataURL(blobInfo.blob());
-                  });
-                },
-                
-                // File picker for gallery selection
-                file_picker_callback: (callback: any, _value: any, meta: any) => {
-                  if (meta.filetype === 'image') {
-                    const input = document.createElement('input');
-                    input.setAttribute('type', 'file');
-                    input.setAttribute('accept', 'image/*');
-                    input.onchange = function(this: HTMLInputElement) {
-                      const file = this.files?.[0];
-                      if (file) {
-                        const reader = new FileReader();
-                        reader.onload = () => {
-                          if (typeof reader.result === 'string') {
-                            callback(reader.result, { 
-                              alt: file.name,
-                              title: file.name
-                            });
-                          }
-                        };
-                        reader.readAsDataURL(file);
-                      }
-                    };
-                    input.click();
-                  }
-                },
-                
-                // Ensure base64 images are properly handled
-                convert_urls: false,
-                relative_urls: false,
-                remove_script_host: false
-              }}
-            />
+                  {/* OCR Button or Progress */}
+                  {pageRanges && ocrTexts.length === 0 && !isOCRProcessing && (
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => setIsOCRProcessing(true)}
+                      disabled={isOCRProcessing}
+                      className="gap-2"
+                      data-testid="button-start-ocr"
+                    >
+                      <ScanText className="h-4 w-4" />
+                      <span className="hidden sm:inline">Extract Text</span>
+                      <span className="sm:hidden">OCR</span>
+                    </Button>
+                  )}
+
+                  {/* OCR Progress */}
+                  {isOCRProcessing && (
+                    <div className="flex items-center gap-2 flex-1 max-w-md" data-testid="ocr-progress-container">
+                      <div className="flex-1 space-y-1">
+                        <div className="flex justify-between text-xs">
+                          <span className="text-muted-foreground">
+                            Processing page {ocrCurrentPage}...
+                          </span>
+                          <span className="font-medium text-primary">{Math.round(ocrProgress)}%</span>
+                        </div>
+                        <Progress value={ocrProgress} className="h-2" data-testid="progress-ocr" />
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Hidden OCR Processor */}
+                  {isOCRProcessing && (
+                    <div className="hidden">
+                      <OCRProcessor
+                        file={pdfFile}
+                        pageRanges={pageRanges}
+                        onOCRComplete={handleOCRComplete}
+                        onProgress={handleOCRProgress}
+                      />
+                    </div>
+                  )}
+
+                  {/* Generate Notes Button or Progress */}
+                  {ocrTexts.length > 0 && !isGeneratingNotes && !generatedNotes && (
+                    <Button
+                      size="sm"
+                      className="gap-2"
+                      onClick={() => setIsGeneratingNotes(true)}
+                      disabled={isGeneratingNotes}
+                      data-testid="button-trigger-generate"
+                    >
+                      <Sparkles className="h-4 w-4" />
+                      <span className="hidden sm:inline">Generate Notes</span>
+                      <span className="sm:hidden">Generate</span>
+                    </Button>
+                  )}
+
+                  {/* Notes Generation Progress */}
+                  {isGeneratingNotes && (
+                    <div className="flex items-center gap-2 flex-1 max-w-md" data-testid="notes-progress-container">
+                      <div className="flex-1 space-y-1">
+                        <div className="flex justify-between text-xs">
+                          <span className="text-muted-foreground">
+                            Generating page {notesCurrentPage} of {ocrTexts.length}...
+                          </span>
+                          <span className="font-medium text-accent">{Math.round(notesProgress)}%</span>
+                        </div>
+                        <Progress value={notesProgress} className="h-2" data-testid="progress-notes" />
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Hidden Note Generator */}
+                  {isGeneratingNotes && (
+                    <div className="hidden">
+                      <NoteGenerator
+                        ocrTexts={ocrTexts}
+                        onNotesGenerated={handleNotesGenerated}
+                        onProgress={handleNotesProgress}
+                      />
+                    </div>
+                  )}
+
+                  {/* View Notes Button */}
+                  {generatedNotes && (
+                    <Button
+                      size="sm"
+                      variant="default"
+                      onClick={() => setShowNotes(true)}
+                      className="gap-2"
+                      data-testid="button-view-notes"
+                    >
+                      <Download className="h-4 w-4" />
+                      View Notes
+                    </Button>
+                  )}
+                </div>
+              </div>
+            </div>
+
+            {/* PDF Viewer - Full Screen with Vertical Scroll */}
+            <div className="flex-1 overflow-hidden p-2 sm:p-4">
+              <div className="h-full max-w-7xl mx-auto">
+                <PDFViewer
+                  file={pdfFile}
+                  onPageCountChange={setTotalPages}
+                  pageRanges={pageRanges}
+                />
+              </div>
+            </div>
           </div>
-        </TabsContent>
-      </Tabs>
-      </Card>
-    </>
+        ) : uploadMode === 'image' && a4Pages.length > 0 ? (
+          /* Image View with Toolbar */
+          <div className="h-full flex flex-col">
+            {/* Compact Toolbar */}
+            <div className="bg-card/80 backdrop-blur-sm border-b px-3 py-2 sm:px-4 sm:py-3">
+              <div className="max-w-7xl mx-auto">
+                <div className="flex flex-wrap items-center gap-2">
+                  {/* Page Info */}
+                  <div className="text-xs sm:text-sm text-muted-foreground bg-accent/5 px-3 py-1.5 rounded-md">
+                    {a4Pages.length} page{a4Pages.length > 1 ? 's' : ''} created from {images.length} image{images.length > 1 ? 's' : ''}
+                  </div>
+
+                  {/* OCR Button or Progress */}
+                  {ocrTexts.length === 0 && !isOCRProcessing && (
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => setIsOCRProcessing(true)}
+                      disabled={isOCRProcessing}
+                      className="gap-2"
+                      data-testid="button-start-image-ocr"
+                    >
+                      <ScanText className="h-4 w-4" />
+                      <span className="hidden sm:inline">Extract Text</span>
+                      <span className="sm:hidden">OCR</span>
+                    </Button>
+                  )}
+
+                  {/* OCR Progress */}
+                  {isOCRProcessing && (
+                    <div className="flex items-center gap-2 flex-1 max-w-md" data-testid="image-ocr-progress-container">
+                      <div className="flex-1 space-y-1">
+                        <div className="flex justify-between text-xs">
+                          <span className="text-muted-foreground">
+                            Processing page {ocrCurrentPage}...
+                          </span>
+                          <span className="font-medium text-primary">{Math.round(ocrProgress)}%</span>
+                        </div>
+                        <Progress value={ocrProgress} className="h-2" data-testid="progress-image-ocr" />
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Hidden OCR Processor */}
+                  {isOCRProcessing && (
+                    <div className="hidden">
+                      <ImageOCRProcessor
+                        pages={a4Pages}
+                        onOCRComplete={handleOCRComplete}
+                        onProgress={handleOCRProgress}
+                      />
+                    </div>
+                  )}
+
+                  {/* Generate Notes Button or Progress */}
+                  {ocrTexts.length > 0 && !isGeneratingNotes && !generatedNotes && (
+                    <Button
+                      size="sm"
+                      className="gap-2"
+                      onClick={() => setIsGeneratingNotes(true)}
+                      disabled={isGeneratingNotes}
+                      data-testid="button-trigger-generate-from-images"
+                    >
+                      <Sparkles className="h-4 w-4" />
+                      <span className="hidden sm:inline">Generate Notes</span>
+                      <span className="sm:hidden">Generate</span>
+                    </Button>
+                  )}
+
+                  {/* Notes Generation Progress */}
+                  {isGeneratingNotes && (
+                    <div className="flex items-center gap-2 flex-1 max-w-md" data-testid="image-notes-progress-container">
+                      <div className="flex-1 space-y-1">
+                        <div className="flex justify-between text-xs">
+                          <span className="text-muted-foreground">
+                            Generating page {notesCurrentPage} of {ocrTexts.length}...
+                          </span>
+                          <span className="font-medium text-accent">{Math.round(notesProgress)}%</span>
+                        </div>
+                        <Progress value={notesProgress} className="h-2" data-testid="progress-image-notes" />
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Hidden Note Generator */}
+                  {isGeneratingNotes && (
+                    <div className="hidden">
+                      <NoteGenerator
+                        ocrTexts={ocrTexts}
+                        onNotesGenerated={handleNotesGenerated}
+                        onProgress={handleNotesProgress}
+                      />
+                    </div>
+                  )}
+
+                  {/* View Notes Button */}
+                  {generatedNotes && (
+                    <Button
+                      size="sm"
+                      variant="default"
+                      onClick={() => setShowNotes(true)}
+                      className="gap-2"
+                      data-testid="button-view-notes-from-images"
+                    >
+                      <Download className="h-4 w-4" />
+                      View Notes
+                    </Button>
+                  )}
+                </div>
+              </div>
+            </div>
+
+            {/* Image Viewer - Full Screen with Vertical Scroll */}
+            <div className="flex-1 overflow-hidden p-2 sm:p-4">
+              <div className="h-full max-w-7xl mx-auto">
+                <ImageViewer pages={a4Pages} />
+              </div>
+            </div>
+          </div>
+        ) : null}
+      </main>
+
+      {/* AI Chatbot - Shows after notes are generated */}
+      {generatedNotes && (uploadMode === 'docx' || ocrTexts.length > 0) && (
+        <AIChatbot ocrTexts={uploadMode === 'docx' ? [generatedNotes] : ocrTexts} />
+      )}
+    </div>
   );
 };
+
+export default Index;
