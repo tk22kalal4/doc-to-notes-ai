@@ -1,3 +1,4 @@
+
 import React, { useState, useRef, useEffect } from 'react';
 import { Download, Copy, Edit3, Eye, Sparkles, Undo2, Redo2, Brain } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -11,11 +12,6 @@ import { Editor } from '@tinymce/tinymce-react';
 import { MCQGenerator } from '@/components/MCQGenerator';
 import { Document, Packer, Paragraph, TextRun, HeadingLevel, AlignmentType, ImageRun, Table, TableRow, TableCell } from 'docx';
 import { saveAs } from 'file-saver';
-
-// Resolve font URLs so Vite serves them correctly (works when fonts are in repo root /font)
-const kalamRegularUrl = new URL('../../font/Kalam-Regular.ttf', import.meta.url).toString();
-const kalamLightUrl = new URL('../../font/Kalam-Light.ttf', import.meta.url).toString();
-const kalamBoldUrl = new URL('../../font/Kalam-Bold.ttf', import.meta.url).toString();
 
 // Helper function to fetch image as ArrayBuffer
 const fetchImageAsArrayBuffer = async (src: string): Promise<ArrayBuffer | null> => {
@@ -115,7 +111,7 @@ export const NotesEditor = ({ content, onContentChange, ocrTexts = [], uploadMod
 
     try {
       // NEW TOUCHUP PROMPT
-      const touchupSystemPrompt = `You are an expert **medical content enhancer and formatter**. Your task is to transform raw or unstructured medical notes into **perfectly formatted, hierarchically [...]
+      const touchupSystemPrompt = `You are an expert **medical content enhancer and formatter**. Your task is to transform raw or unstructured medical notes into **perfectly formatted, hierarchically organized, and visually rich HTML content**, while **preserving every medical detail and meaning**.
 
 ⚕️ **CORE OBJECTIVES**
 - Preserve ALL medical accuracy: every drug name, dosage, symptom, diagnosis, sign, and mechanism.
@@ -648,113 +644,6 @@ Return **ONLY** the enhanced and formatted HTML content — clean, structured, a
     return <MCQGenerator ocrTexts={contentForMCQ} onClose={() => setShowMCQ(false)} />;
   }
 
-  // Build content_style dynamically so the @font-face URLs are correct and fonts load in TinyMCE
-  const contentStyle = `
-    @font-face {
-      font-family: 'Kalam';
-      src: url('${kalamRegularUrl}') format('truetype');
-      font-weight: 400;
-      font-style: normal;
-      font-display: swap;
-    }
-    @font-face {
-      font-family: 'Kalam Light';
-      src: url('${kalamLightUrl}') format('truetype');
-      font-weight: 300;
-      font-style: normal;
-      font-display: swap;
-    }
-    @font-face {
-      font-family: 'Kalam Bold';
-      src: url('${kalamBoldUrl}') format('truetype');
-      font-weight: 700;
-      font-style: normal;
-      font-display: swap;
-    }
-    body { 
-      font-family: Arial, sans-serif; 
-      font-size: 14px;
-      line-height: 1.6;
-    }
-    h1 {
-      color: #0891b2 !important;
-      margin-top: 24px !important;
-      margin-bottom: 12px !important;
-      font-weight: bold;
-    }
-    h2 {
-      color: #9333ea !important;
-      margin-top: 18px !important;
-      margin-bottom: 9px !important;
-      font-weight: bold;
-    }
-    h3 {
-      margin-top: 12px !important;
-      margin-bottom: 6px !important;
-      font-weight: bold;
-    }
-    h4 {
-      margin-top: 9px !important;
-      margin-bottom: 4.5px !important;
-      font-weight: bold;
-    }
-    p {
-      margin-top: 6px !important;
-      margin-bottom: 6px !important;
-      max-width: 100%;
-      word-wrap: break-word;
-      overflow-wrap: break-word;
-    }
-    hr {
-      margin: 12px 0 !important;
-      border: none !important;
-      border-top: 1px solid #cccccc !important;
-      max-width: 100% !important;
-    }
-    ul, ol {
-      max-width: 100%;
-      word-wrap: break-word;
-      overflow-wrap: break-word;
-      margin-left: 1.5rem !important;
-    }
-    ul ul, ol ol {
-      margin-left: 2rem !important;
-    }
-    ul ul ul, ol ol ol {
-      margin-left: 2rem !important;
-    }
-    li {
-      max-width: 100%;
-      word-wrap: break-word;
-      overflow-wrap: break-word;
-      margin-bottom: 0.5rem !important;
-    }
-    img { 
-      max-width: 100%; 
-      height: auto;
-      display: block;
-      margin: 10px 0;
-      cursor: pointer;
-    }
-    img:hover {
-      opacity: 0.9;
-      outline: 2px solid #0891b2;
-    }
-    table {
-      border-collapse: collapse;
-      width: 100%;
-      margin: 12px 0;
-    }
-    td, th {
-      border: 1px solid #cccccc;
-      padding: 8px;
-    }
-    th {
-      background-color: #f0f0f0;
-      font-weight: bold;
-    }
-  `;
-
   return (
     <>
       <Dialog open={showDownloadDialog} onOpenChange={setShowDownloadDialog}>
@@ -901,19 +790,113 @@ Return **ONLY** the enhanced and formatted HTML content — clean, structured, a
                   'anchor', 'searchreplace', 'visualblocks', 'code', 'fullscreen',
                   'insertdatetime', 'media', 'table', 'code', 'help', 'wordcount'
                 ],
-                toolbar: 'undo redo | blocks fontfamily fontsize | ' +
+                toolbar: 'undo redo | blocks | ' +
                   'bold italic forecolor | alignleft aligncenter ' +
                   'alignright alignjustify | bullist numlist outdent indent | ' +
-                  'removeformat | image media table | help',
-                content_style: contentStyle,
+                  'removeformat | image media table | fontfamily | help',
+                content_style: `
+                  @font-face {
+                    font-family: 'Kalam';
+                    src: url('/font/Kalam-Regular.ttf') format('truetype');
+                    font-weight: 400;
+                  }
+                  @font-face {
+                    font-family: 'Kalam Light';
+                    src: url('/font/Kalam-Light.ttf') format('truetype');
+                    font-weight: 300;
+                  }
+                  @font-face {
+                    font-family: 'Kalam Bold';
+                    src: url('/font/Kalam-Bold.ttf') format('truetype');
+                    font-weight: 700;
+                  }
+                  body { 
+                    font-family: Arial, sans-serif; 
+                    font-size: 14px;
+                    line-height: 1.6;
+                  }
+                  h1 {
+                    color: #0891b2 !important;
+                    margin-top: 24px !important;
+                    margin-bottom: 12px !important;
+                    font-weight: bold;
+                  }
+                  h2 {
+                    color: #9333ea !important;
+                    margin-top: 18px !important;
+                    margin-bottom: 9px !important;
+                    font-weight: bold;
+                  }
+                  h3 {
+                    margin-top: 12px !important;
+                    margin-bottom: 6px !important;
+                    font-weight: bold;
+                  }
+                  h4 {
+                    margin-top: 9px !important;
+                    margin-bottom: 4.5px !important;
+                    font-weight: bold;
+                  }
+                  p {
+                    margin-top: 6px !important;
+                    margin-bottom: 6px !important;
+                    max-width: 100%;
+                    word-wrap: break-word;
+                    overflow-wrap: break-word;
+                  }
+                  hr {
+                    margin: 12px 0 !important;
+                    border: none !important;
+                    border-top: 1px solid #cccccc !important;
+                    max-width: 100% !important;
+                  }
+                  ul, ol {
+                    max-width: 100%;
+                    word-wrap: break-word;
+                    overflow-wrap: break-word;
+                    margin-left: 1.5rem !important;
+                  }
+                  ul ul, ol ol {
+                    margin-left: 2rem !important;
+                  }
+                  ul ul ul, ol ol ol {
+                    margin-left: 2rem !important;
+                  }
+                  li {
+                    max-width: 100%;
+                    word-wrap: break-word;
+                    overflow-wrap: break-word;
+                    margin-bottom: 0.5rem !important;
+                  }
+                  img { 
+                    max-width: 100%; 
+                    height: auto;
+                    display: block;
+                    margin: 10px 0;
+                    cursor: pointer;
+                  }
+                  img:hover {
+                    opacity: 0.9;
+                    outline: 2px solid #0891b2;
+                  }
+                  table {
+                    border-collapse: collapse;
+                    width: 100%;
+                    margin: 12px 0;
+                  }
+                  td, th {
+                    border: 1px solid #cccccc;
+                    padding: 8px;
+                  }
+                  th {
+                    background-color: #f0f0f0;
+                    font-weight: bold;
+                  }
+                `,
                 placeholder: 'Your generated notes will appear here. Use the toolbar to format text, add images, and customize your notes...',
                 
-                // Font family options for BOTH toolbar dropdown AND Format > Fonts menu
-                // TinyMCE 6+ uses font_family_formats
-                font_family_formats: 
-                  'Kalam=Kalam, cursive;' +
-                  'Kalam Light=Kalam Light, cursive;' +
-                  'Kalam Bold=Kalam Bold, cursive;' +
+                // Font family options including Kalam handwritten fonts
+                font_formats: 
                   'Arial=Arial, Helvetica, sans-serif;' +
                   'Georgia=Georgia, serif;' +
                   'Times New Roman=Times New Roman, Times, serif;' +
@@ -922,10 +905,10 @@ Return **ONLY** the enhanced and formatted HTML content — clean, structured, a
                   'Trebuchet MS=Trebuchet MS, sans-serif;' +
                   'Verdana=Verdana, sans-serif;' +
                   'Impact=Impact, fantasy;' +
-                  'Tahoma=Tahoma, sans-serif;',
-                
-                // Font size options
-                font_size_formats: '8pt 10pt 12pt 14pt 16pt 18pt 24pt 36pt 48pt',
+                  'Tahoma=Tahoma, sans-serif;' +
+                  'Kalam Regular=Kalam, cursive;' +
+                  'Kalam Light=Kalam Light, cursive;' +
+                  'Kalam Bold=Kalam Bold, cursive;',
                 
                 // Image settings
                 image_advtab: true,
