@@ -14,7 +14,10 @@ export const parseDocxFile = async (file: File): Promise<string> => {
     const temp = document.createElement('div');
     temp.innerHTML = html;
     
-    // Process each element to reconstruct formatting lost by mammoth
+    // Reconstruct nested bullet lists from flat structure
+    reconstructNestedLists(temp);
+    
+    // Process each element to apply styling
     processElementsForStyling(temp);
     
     // Get the processed HTML
@@ -27,6 +30,87 @@ export const parseDocxFile = async (file: File): Promise<string> => {
   }
 };
 
+const reconstructNestedLists = (container: HTMLElement) => {
+  // Find all ul/ol lists in the document
+  const lists = container.querySelectorAll('ul, ol');
+  
+  lists.forEach((list) => {
+    const listEl = list as HTMLElement;
+    const items = Array.from(listEl.querySelectorAll(':scope > li'));
+    
+    if (items.length === 0) return;
+    
+    // Analyze each list item to determine its nesting level based on bullet marker
+    const itemsWithMetadata: Array<{ 
+      el: HTMLElement; 
+      indent: number; 
+    }> = [];
+    
+    items.forEach((item) => {
+      const li = item as HTMLElement;
+      const text = (li.textContent || '').trim();
+      
+      // Detect indentation level:
+      // Level 0: Primary markers (📌, 🟡, 🔹, ⚠️, ❤️, 🔬, 🧬, 🤒, 💊, 📝, 🟢, 🔪, ⚡, 🩺)
+      // Level 1: Secondary marker (🧠) - indicates this is a nested bullet
+      let indent = 0;
+      
+      if (text.startsWith('🧠')) {
+        indent = 1;
+      } else {
+        indent = 0;
+      }
+      
+      itemsWithMetadata.push({ el: li, indent });
+    });
+    
+    // Reconstruct nested structure from the flat list
+    if (itemsWithMetadata.length > 0) {
+      const newList = document.createElement('ul') as HTMLUListElement;
+      newList.className = listEl.className;
+      
+      let currentLevel = 0;
+      let currentList = newList as HTMLElement;
+      const listStack: HTMLElement[] = [newList as HTMLElement];
+      
+      itemsWithMetadata.forEach((item) => {
+        const { el, indent } = item;
+        
+        if (indent > currentLevel) {
+          // Create nested list
+          for (let i = currentLevel; i < indent; i++) {
+            const newNestedList = document.createElement('ul') as HTMLUListElement;
+            const lastItem = currentList.lastElementChild as HTMLElement;
+            
+            if (lastItem) {
+              lastItem.appendChild(newNestedList);
+            }
+            
+            currentList = newNestedList as HTMLElement;
+            listStack.push(currentList);
+          }
+          currentLevel = indent;
+        } else if (indent < currentLevel) {
+          // Pop up the stack
+          const levelDiff = currentLevel - indent;
+          for (let i = 0; i < levelDiff; i++) {
+            listStack.pop();
+          }
+          currentList = listStack[listStack.length - 1];
+          currentLevel = indent;
+        }
+        
+        // Clone and append
+        const clonedEl = el.cloneNode(true) as HTMLElement;
+        currentList.appendChild(clonedEl);
+      });
+      
+      // Replace original list
+      listEl.parentElement?.replaceChild(newList, listEl);
+    }
+  });
+};
+
 const processElementsForStyling = (container: HTMLElement) => {
   const elements = container.querySelectorAll('*');
   
@@ -34,9 +118,8 @@ const processElementsForStyling = (container: HTMLElement) => {
     const el = element as HTMLElement;
     const tagName = el.tagName.toLowerCase();
     
-    // Apply heading colors to match the download format
+    // Apply heading colors
     if (tagName === 'h1') {
-      // H1: cyan color with proper spacing and font
       el.style.color = '#0891b2';
       el.style.marginTop = '24px';
       el.style.marginBottom = '12px';
@@ -44,7 +127,6 @@ const processElementsForStyling = (container: HTMLElement) => {
       el.style.fontWeight = '700';
       el.style.lineHeight = '1.3';
     } else if (tagName === 'h2') {
-      // H2: purple color with proper spacing and font
       el.style.color = '#9333ea';
       el.style.marginTop = '18px';
       el.style.marginBottom = '9px';
@@ -52,20 +134,17 @@ const processElementsForStyling = (container: HTMLElement) => {
       el.style.fontWeight = '600';
       el.style.lineHeight = '1.4';
     } else if (tagName === 'h3') {
-      // H3: proper spacing and font
       el.style.marginTop = '12px';
       el.style.marginBottom = '6px';
       el.style.fontSize = '1.25rem';
       el.style.fontWeight = '600';
       el.style.lineHeight = '1.4';
     } else if (tagName === 'h4') {
-      // H4: proper spacing and font
       el.style.marginTop = '9px';
       el.style.marginBottom = '4.5px';
       el.style.fontWeight = '600';
       el.style.lineHeight = '1.4';
     } else if (tagName === 'p') {
-      // Paragraphs: proper spacing and max-width constraint
       el.style.marginTop = '6px';
       el.style.marginBottom = '6px';
       el.style.maxWidth = '100%';
@@ -73,7 +152,6 @@ const processElementsForStyling = (container: HTMLElement) => {
       el.style.overflowWrap = 'break-word';
       el.style.lineHeight = '1.8';
     } else if (tagName === 'li') {
-      // List items: proper spacing
       el.style.marginBottom = '0.5rem';
       el.style.lineHeight = '1.8';
       el.style.maxWidth = '100%';
@@ -82,43 +160,61 @@ const processElementsForStyling = (container: HTMLElement) => {
     }
   });
   
-  // Apply spacing to all lists with proper left margins
-  container.querySelectorAll('ul, ol').forEach((list: Element) => {
+  // Apply list styling with proper margins and hide nested bullets
+  const allLists = container.querySelectorAll('ul, ol');
+  
+  allLists.forEach((list) => {
     const listEl = list as HTMLElement;
-    const parent = listEl.parentElement;
     
-    // Check nesting level
-    const isNestedOnce = parent && (parent.tagName.toLowerCase() === 'li');
-    const isNestedTwice = isNestedOnce && parent.parentElement && 
-                          (parent.parentElement.tagName.toLowerCase() === 'li' || 
-                           parent.parentElement.parentElement?.tagName.toLowerCase() === 'li');
+    // Determine nesting level
+    let nestLevel = 0;
+    let parent = listEl.parentElement;
     
-    if (!isNestedOnce) {
-      // First level lists - add left margin
-      listEl.style.marginLeft = '1.5rem';
-      listEl.style.paddingLeft = '0';
-      listEl.style.marginTop = '0.75rem';
-      listEl.style.marginBottom = '0.75rem';
-    } else if (isNestedOnce && !isNestedTwice) {
-      // Second level lists
-      listEl.style.marginLeft = '2rem';
-      listEl.style.paddingLeft = '0';
-      listEl.style.marginTop = '0.5rem';
-      listEl.style.marginBottom = '0.5rem';
-    } else {
-      // Third level and beyond
-      listEl.style.marginLeft = '2rem';
-      listEl.style.paddingLeft = '0';
-      listEl.style.marginTop = '0.25rem';
-      listEl.style.marginBottom = '0.25rem';
+    while (parent) {
+      if (parent.tagName.toLowerCase() === 'li') {
+        nestLevel++;
+        parent = parent.parentElement?.parentElement;
+      } else {
+        break;
+      }
     }
     
+    // Apply margins based on nesting level
+    listEl.style.marginRight = '0';
+    listEl.style.paddingLeft = '0';
     listEl.style.maxWidth = '100%';
     listEl.style.overflowWrap = 'break-word';
+    
+    if (nestLevel === 0) {
+      // Top-level list
+      listEl.style.marginLeft = '1.5rem';
+      listEl.style.marginTop = '0.75rem';
+      listEl.style.marginBottom = '0.75rem';
+      listEl.style.listStyleType = 'disc';
+    } else if (nestLevel === 1) {
+      // Nested once - hide bullets
+      listEl.style.marginLeft = '2rem';
+      listEl.style.marginTop = '0.5rem';
+      listEl.style.marginBottom = '0.5rem';
+      listEl.style.listStyleType = 'none';
+      
+      // Remove default bullet styling from nested items
+      const nestedItems = listEl.querySelectorAll(':scope > li');
+      nestedItems.forEach((item) => {
+        const liEl = item as HTMLElement;
+        liEl.style.paddingLeft = '0';
+        liEl.style.listStyleType = 'none';
+      });
+    } else {
+      // Triple nested and beyond
+      listEl.style.marginLeft = '2rem';
+      listEl.style.marginTop = '0.25rem';
+      listEl.style.marginBottom = '0.25rem';
+      listEl.style.listStyleType = 'none';
+    }
   });
   
-  // Convert horizontal lines (which mammoth may represent as separators) to proper HR elements
-  // Look for text nodes that contain only dashes or similar separator patterns
+  // Convert horizontal lines to HR elements
   const walker = document.createTreeWalker(
     container,
     NodeFilter.SHOW_TEXT,
@@ -130,7 +226,6 @@ const processElementsForStyling = (container: HTMLElement) => {
   
   while ((textNode = walker.nextNode())) {
     const text = textNode.textContent || '';
-    // Check if this is a separator line (50+ dashes, underscores, or similar)
     if (/^[─_\-═]{30,}$/.test(text.trim())) {
       const hr = document.createElement('hr');
       hr.style.margin = '18px 0';
@@ -145,21 +240,8 @@ const processElementsForStyling = (container: HTMLElement) => {
     }
   }
   
-  // Replace separator lines with HR elements
   nodesToReplace.forEach(({ node, parent, hr }) => {
     parent.replaceChild(hr, node);
-  });
-  
-  // Add max-width and prevent overflow for list items
-  container.querySelectorAll('ul, ol').forEach((list: Element) => {
-    (list as HTMLElement).style.maxWidth = '100%';
-    (list as HTMLElement).style.overflowWrap = 'break-word';
-  });
-  
-  container.querySelectorAll('li').forEach((li: Element) => {
-    (li as HTMLElement).style.maxWidth = '100%';
-    (li as HTMLElement).style.wordWrap = 'break-word';
-    (li as HTMLElement).style.overflowWrap = 'break-word';
   });
 };
 
