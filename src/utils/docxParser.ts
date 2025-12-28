@@ -1,4 +1,3 @@
-
 import mammoth from 'mammoth';
 
 export const parseDocxFile = async (file: File): Promise<string> => {
@@ -83,28 +82,39 @@ const processElementsForStyling = (container: HTMLElement) => {
     }
   });
   
-  // Apply spacing to lists
+  // Apply spacing to all lists with proper left margins
   container.querySelectorAll('ul, ol').forEach((list: Element) => {
     const listEl = list as HTMLElement;
-    listEl.style.marginTop = '0.75rem';
-    listEl.style.marginBottom = '0.75rem';
+    const parent = listEl.parentElement;
+    
+    // Check nesting level
+    const isNestedOnce = parent && (parent.tagName.toLowerCase() === 'li');
+    const isNestedTwice = isNestedOnce && parent.parentElement && 
+                          (parent.parentElement.tagName.toLowerCase() === 'li' || 
+                           parent.parentElement.parentElement?.tagName.toLowerCase() === 'li');
+    
+    if (!isNestedOnce) {
+      // First level lists - add left margin
+      listEl.style.marginLeft = '1.5rem';
+      listEl.style.paddingLeft = '0';
+      listEl.style.marginTop = '0.75rem';
+      listEl.style.marginBottom = '0.75rem';
+    } else if (isNestedOnce && !isNestedTwice) {
+      // Second level lists
+      listEl.style.marginLeft = '2rem';
+      listEl.style.paddingLeft = '0';
+      listEl.style.marginTop = '0.5rem';
+      listEl.style.marginBottom = '0.5rem';
+    } else {
+      // Third level and beyond
+      listEl.style.marginLeft = '2rem';
+      listEl.style.paddingLeft = '0';
+      listEl.style.marginTop = '0.25rem';
+      listEl.style.marginBottom = '0.25rem';
+    }
+    
     listEl.style.maxWidth = '100%';
     listEl.style.overflowWrap = 'break-word';
-  });
-  
-  // Apply proper indentation to nested lists
-  container.querySelectorAll('ul ul, ol ol').forEach((nestedList: Element) => {
-    const nestedEl = nestedList as HTMLElement;
-    nestedEl.style.marginTop = '0.5rem';
-    nestedEl.style.marginBottom = '0.5rem';
-    nestedEl.style.paddingLeft = '2rem';
-  });
-  
-  container.querySelectorAll('ul ul ul, ol ol ol').forEach((tripleNestedList: Element) => {
-    const tripleEl = tripleNestedList as HTMLElement;
-    tripleEl.style.marginTop = '0.25rem';
-    tripleEl.style.marginBottom = '0.25rem';
-    tripleEl.style.paddingLeft = '2rem';
   });
   
   // Convert horizontal lines (which mammoth may represent as separators) to proper HR elements
@@ -123,7 +133,8 @@ const processElementsForStyling = (container: HTMLElement) => {
     // Check if this is a separator line (50+ dashes, underscores, or similar)
     if (/^[─_\-═]{30,}$/.test(text.trim())) {
       const hr = document.createElement('hr');
-      hr.style.margin = '12px 0';
+      hr.style.margin = '18px 0';
+      hr.style.padding = '0';
       hr.style.border = 'none';
       hr.style.borderTop = '1px solid #cccccc';
       hr.style.maxWidth = '100%';
