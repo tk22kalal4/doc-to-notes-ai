@@ -801,12 +801,12 @@ Return **ONLY** the enhanced and formatted HTML content — clean, structured, a
                     font-weight: 400;
                   }
                   @font-face {
-                    font-family: 'Kalam Light';
+                    font-family: 'KalamLight';
                     src: url('/font/Kalam-Light.ttf') format('truetype');
                     font-weight: 300;
                   }
                   @font-face {
-                    font-family: 'Kalam Bold';
+                    font-family: 'KalamBold';
                     src: url('/font/Kalam-Bold.ttf') format('truetype');
                     font-weight: 700;
                   }
@@ -858,9 +858,14 @@ Return **ONLY** the enhanced and formatted HTML content — clean, structured, a
                   }
                   ul ul, ol ol {
                     margin-left: 2rem !important;
+                    list-style: none !important;
                   }
                   ul ul ul, ol ol ol {
                     margin-left: 2rem !important;
+                    list-style: none !important;
+                  }
+                  ul ul li, ol ol li {
+                    list-style: none !important;
                   }
                   li {
                     max-width: 100%;
@@ -906,9 +911,9 @@ Return **ONLY** the enhanced and formatted HTML content — clean, structured, a
                   'Verdana=Verdana, sans-serif;' +
                   'Impact=Impact, fantasy;' +
                   'Tahoma=Tahoma, sans-serif;' +
-                  'Kalam Regular=Kalam, cursive;' +
-                  'Kalam Light=Kalam Light, cursive;' +
-                  'Kalam Bold=Kalam Bold, cursive;',
+                  'Kalam Regular=Kalam;' +
+                  'Kalam Light=KalamLight;' +
+                  'Kalam Bold=KalamBold;',
                 
                 // Image settings
                 image_advtab: true,
