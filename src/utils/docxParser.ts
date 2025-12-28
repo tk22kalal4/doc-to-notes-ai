@@ -192,25 +192,30 @@ const processElementsForStyling = (container: HTMLElement) => {
       listEl.style.marginBottom = '0.75rem';
       listEl.style.listStyleType = 'disc';
     } else if (nestLevel === 1) {
-      // Nested once - hide bullets
+      // Nested once - hide bullets completely
       listEl.style.marginLeft = '2rem';
       listEl.style.marginTop = '0.5rem';
       listEl.style.marginBottom = '0.5rem';
-      listEl.style.listStyleType = 'none';
+      listEl.style.setProperty('listStyleType', 'none', 'important');
+      listEl.style.listStylePosition = 'inside';
+      listEl.style.padding = '0';
       
       // Remove default bullet styling from nested items
       const nestedItems = listEl.querySelectorAll(':scope > li');
       nestedItems.forEach((item) => {
         const liEl = item as HTMLElement;
+        liEl.style.setProperty('listStyleType', 'none', 'important');
+        liEl.style.listStylePosition = 'inside';
         liEl.style.paddingLeft = '0';
-        liEl.style.listStyleType = 'none';
+        liEl.style.marginLeft = '0';
+        liEl.style.textIndent = '0';
       });
     } else {
       // Triple nested and beyond
       listEl.style.marginLeft = '2rem';
       listEl.style.marginTop = '0.25rem';
       listEl.style.marginBottom = '0.25rem';
-      listEl.style.listStyleType = 'none';
+      listEl.style.setProperty('listStyleType', 'none', 'important');
     }
   });
   
