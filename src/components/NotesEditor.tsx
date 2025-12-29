@@ -389,35 +389,39 @@ Return **ONLY** the enhanced and formatted HTML content — clean, structured, a
                 if (elTag === 'img') {
                   const imgSrc = el.getAttribute('src');
                   if (imgSrc) {
-                    const imgData = await fetchImageAsArrayBuffer(imgSrc);
-                    if (imgData) {
-                      const dims = await getImageDimensions(imgSrc);
-                      let w = dims.width;
-                      let h = dims.height;
-                      
-                      const sw = el.getAttribute('width') || (el as HTMLElement).style?.width;
-                      const sh = el.getAttribute('height') || (el as HTMLElement).style?.height;
-                      if (sw) {
-                        const pw = parseInt(sw.toString().replace('px', ''), 10);
-                        if (!isNaN(pw)) w = pw;
+                    try {
+                      const imgData = await fetchImageAsArrayBuffer(imgSrc);
+                      if (imgData) {
+                        const dims = await getImageDimensions(imgSrc);
+                        let w = dims.width;
+                        let h = dims.height;
+                        
+                        const sw = el.getAttribute('width') || (el as HTMLElement).style?.width;
+                        const sh = el.getAttribute('height') || (el as HTMLElement).style?.height;
+                        if (sw) {
+                          const pw = parseInt(sw.toString().replace('px', ''), 10);
+                          if (!isNaN(pw)) w = pw;
+                        }
+                        if (sh) {
+                          const ph = parseInt(sh.toString().replace('px', ''), 10);
+                          if (!isNaN(ph)) h = ph;
+                        }
+                        
+                        const maxW = 600;
+                        if (w > maxW) {
+                          const sc = maxW / w;
+                          w = maxW;
+                          h = Math.round(h * sc);
+                        }
+                        
+                        runs.push(new ImageRun({
+                          data: imgData,
+                          transformation: { width: w, height: h },
+                          type: 'png',
+                        }));
                       }
-                      if (sh) {
-                        const ph = parseInt(sh.toString().replace('px', ''), 10);
-                        if (!isNaN(ph)) h = ph;
-                      }
-                      
-                      const maxW = 600;
-                      if (w > maxW) {
-                        const sc = maxW / w;
-                        w = maxW;
-                        h = Math.round(h * sc);
-                      }
-                      
-                      runs.push(new ImageRun({
-                        data: imgData,
-                        transformation: { width: w, height: h },
-                        type: 'png',
-                      }));
+                    } catch (imgError) {
+                      console.warn('Failed to load image in paragraph:', imgSrc, imgError);
                     }
                   }
                 } else {
@@ -453,7 +457,8 @@ Return **ONLY** the enhanced and formatted HTML content — clean, structured, a
                 const emoji = numberEmojis[num] || `${num}.`;
                 bulletText = `${emoji} `;
               } else {
-                bulletText = '• ';
+                // Don't add bullet for ul - HTML content already has emoji bullets
+                bulletText = '';
               }
           
               const liRuns: any[] = [];
@@ -465,7 +470,13 @@ Return **ONLY** the enhanced and formatted HTML content — clean, structured, a
               for (const child of Array.from(li.childNodes)) {
                 if (child.nodeType === Node.TEXT_NODE) {
                   const t = child.textContent?.trim() || '';
-                  if (t) liRuns.push(new TextRun({ text: t, size: 24 }));
+                  if (t) {
+                    // Remove any leading "•" character from text content
+                    const cleanedText = t.replace(/^•\s*/, '');
+                    if (cleanedText) {
+                      liRuns.push(new TextRun({ text: cleanedText, size: 24 }));
+                    }
+                  }
                 } 
                 else if (child.nodeType === Node.ELEMENT_NODE) {
                   const el = child as Element;
@@ -478,34 +489,44 @@ Return **ONLY** the enhanced and formatted HTML content — clean, structured, a
                   if (elTag === 'img') {
                     const imgSrc = el.getAttribute('src');
                     if (imgSrc) {
-                      const imgData = await fetchImageAsArrayBuffer(imgSrc);
-                      if (imgData) {
-                        const dims = await getImageDimensions(imgSrc);
-                        let w = dims.width;
-                        let h = dims.height;
+                      try {
+                        const imgData = await fetchImageAsArrayBuffer(imgSrc);
+                        if (imgData) {
+                          const dims = await getImageDimensions(imgSrc);
+                          let w = dims.width;
+                          let h = dims.height;
           
-                        const maxW = 500;
-                        if (w > maxW) {
-                          const sc = maxW / w;
-                          w = maxW;
-                          h = Math.round(h * sc);
+                          const maxW = 500;
+                          if (w > maxW) {
+                            const sc = maxW / w;
+                            w = maxW;
+                            h = Math.round(h * sc);
+                          }
+          
+                          liRuns.push(
+                            new ImageRun({
+                              data: imgData,
+                              transformation: { width: w, height: h },
+                              type: 'png',
+                            })
+                          );
                         }
-          
-                        liRuns.push(
-                          new ImageRun({
-                            data: imgData,
-                            transformation: { width: w, height: h },
-                            type: 'png',
-                          })
-                        );
+                      } catch (imgError) {
+                        console.warn('Failed to load image in list:', imgSrc, imgError);
                       }
                     }
                   } else {
                     const ct = el.textContent || '';
+                    // Remove leading "•" from element content too
+                    const cleanedContent = ct.replace(/^•\s*/, '');
                     if (elTag === 'strong' || elTag === 'b') {
-                      liRuns.push(new TextRun({ text: ct, bold: true, size: 24 }));
+                      if (cleanedContent) {
+                        liRuns.push(new TextRun({ text: cleanedContent, bold: true, size: 24 }));
+                      }
                     } else {
-                      liRuns.push(new TextRun({ text: ct, size: 24 }));
+                      if (cleanedContent) {
+                        liRuns.push(new TextRun({ text: cleanedContent, size: 24 }));
+                      }
                     }
                   }
                 }
@@ -514,8 +535,8 @@ Return **ONLY** the enhanced and formatted HTML content — clean, structured, a
               if (liRuns.length > 0) {
                 result.push(
                   new Paragraph({
-                    children: [new TextRun({ text: bulletText, size: 24 }), ...liRuns],
-                    indent: { left: totalIndent, hanging: 360 },
+                    children: bulletText ? [new TextRun({ text: bulletText, size: 24 }), ...liRuns] : liRuns,
+                    indent: { left: totalIndent, hanging: bulletText ? 360 : 0 },
                     spacing: { before: 50, after: 50 },
                   })
                 );
