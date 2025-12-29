@@ -12,6 +12,7 @@ import { ImageUploader } from '@/components/ImageUploader';
 import { ImageSequenceManager } from '@/components/ImageSequenceManager';
 import { ImageViewer } from '@/components/ImageViewer';
 import { ImageOCRProcessor } from '@/components/ImageOCRProcessor';
+import { DocxPreview } from '@/components/DocxPreview';
 import { arrangeImagesIntoA4Pages } from '@/utils/imageToA4';
 import { parseDocxFile, isDocxFile } from '@/utils/docxParser';
 import { useToast } from '@/hooks/use-toast';
@@ -53,6 +54,8 @@ const Index = () => {
   
   // DOCX states
   const [isParsingDocx, setIsParsingDocx] = useState(false);
+  const [docxFile, setDocxFile] = useState<File | null>(null);
+  const [showDocxPreview, setShowDocxPreview] = useState(false);
 
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -103,27 +106,42 @@ const Index = () => {
   const handleDocxSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file && isDocxFile(file)) {
-      setIsParsingDocx(true);
-      try {
-        const htmlContent = await parseDocxFile(file);
-        setGeneratedNotes(htmlContent);
-        setShowNotes(true);
-        setUploadMode('docx');
-        setOcrTexts([]);
-        toast({
-          title: 'Success',
-          description: 'DOCX file loaded successfully. You can now edit the notes.',
-        });
-      } catch (error) {
-        console.error('Error parsing docx:', error);
-        toast({
-          title: 'Error',
-          description: 'Failed to parse the DOCX file. Please ensure it is a valid Word document.',
-          variant: 'destructive',
-        });
-      } finally {
-        setIsParsingDocx(false);
-      }
+      // Store the original file for exact preview
+      setDocxFile(file);
+      setShowDocxPreview(true);
+      setUploadMode('docx');
+      setOcrTexts([]);
+      setGeneratedNotes('');
+      setShowNotes(false);
+      toast({
+        title: 'DOCX Loaded',
+        description: 'Showing exact preview. Click "Convert to Editable" to edit.',
+      });
+    }
+  };
+
+  const handleConvertDocxToEditable = async () => {
+    if (!docxFile) return;
+    
+    setIsParsingDocx(true);
+    try {
+      const htmlContent = await parseDocxFile(docxFile);
+      setGeneratedNotes(htmlContent);
+      setShowDocxPreview(false);
+      setShowNotes(true);
+      toast({
+        title: 'Converted',
+        description: 'DOCX converted to editable format. Some formatting may differ.',
+      });
+    } catch (error) {
+      console.error('Error parsing docx:', error);
+      toast({
+        title: 'Error',
+        description: 'Failed to convert the DOCX file.',
+        variant: 'destructive',
+      });
+    } finally {
+      setIsParsingDocx(false);
     }
   };
 
@@ -223,6 +241,8 @@ const Index = () => {
     setGeneratedNotes('');
     setShowNotes(false);
     setIsParsingDocx(false);
+    setDocxFile(null);
+    setShowDocxPreview(false);
     images.forEach(img => URL.revokeObjectURL(img.url));
     setImages([]);
     setShowImageManager(false);
@@ -246,7 +266,7 @@ const Index = () => {
                 </p>
               </div>
             </div>
-            {(pdfFile || images.length > 0) && (
+            {(pdfFile || images.length > 0 || docxFile) && (
               <Button
                 variant="ghost"
                 size="sm"
@@ -383,6 +403,14 @@ const Index = () => {
                 </Button>
               </div>
             </div>
+          </div>
+        ) : showDocxPreview && docxFile ? (
+          /* Exact DOCX Preview */
+          <div className="h-full">
+            <DocxPreview 
+              file={docxFile} 
+              onConvertToEditable={handleConvertDocxToEditable} 
+            />
           </div>
         ) : showNotes ? (
           /* Notes View */

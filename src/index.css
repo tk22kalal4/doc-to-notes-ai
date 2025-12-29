@@ -393,3 +393,38 @@ body,
   }
 }
 
+/* DOCX Preview Styles (docx-preview library) */
+.docx-container {
+  padding: 1rem;
+  max-width: 100%;
+}
+
+.docx-container .docx-wrapper {
+  background: white;
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -2px rgba(0, 0, 0, 0.1);
+  margin: 0 auto;
+  padding: 1cm;
+}
+
+.dark .docx-container .docx-wrapper {
+  background: hsl(var(--card));
+  color: hsl(var(--foreground));
+}
+
+/* Ensure docx content respects page breaks */
+.docx-container .docx-wrapper section {
+  page-break-after: always;
+  margin-bottom: 2rem;
+}
+
+.docx-container .docx-wrapper section:last-child {
+  page-break-after: auto;
+  margin-bottom: 0;
+}
+
+/* Responsive adjustments */
+@media (max-width: 640px) {
+  .docx-container .docx-wrapper {
+    padding: 0.5cm;
+  }
+}
