@@ -284,6 +284,12 @@ Return **ONLY** the enhanced and formatted HTML content — clean, structured, a
       } else if (child.nodeType === Node.ELEMENT_NODE) {
         const el = child as Element;
         const tag = el.tagName.toLowerCase();
+        
+        // Skip nested lists to prevent duplication - they'll be processed separately
+        if (tag === 'ul' || tag === 'ol') {
+          continue;
+        }
+        
         const content = el.textContent || '';
         
         if (tag === 'img') {
@@ -435,17 +441,51 @@ Return **ONLY** the enhanced and formatted HTML content — clean, structured, a
           case 'p': {
             const runs = await buildRuns(element, 24);
             if (runs.length > 0) {
-              result.push(new Paragraph({
-                children: runs,
-                spacing: { before: 100, after: 100 },
-              }));
+              // Check if paragraph contains images - if so, handle separately
+              const hasImages = runs.some(r => r instanceof ImageRun || (r && r.constructor?.name === 'ImageRun'));
+              
+              if (hasImages) {
+                // Add image paragraphs separately
+                let textRuns: any[] = [];
+                for (const run of runs) {
+                  if (run instanceof ImageRun || (run && run.constructor?.name === 'ImageRun')) {
+                    // Flush text runs first
+                    if (textRuns.length > 0) {
+                      result.push(new Paragraph({
+                        children: textRuns,
+                        spacing: { before: 100, after: 100 },
+                      }));
+                      textRuns = [];
+                    }
+                    // Add image paragraph
+                    result.push(new Paragraph({
+                      children: [run],
+                      spacing: { before: 100, after: 100 },
+                    }));
+                  } else {
+                    textRuns.push(run);
+                  }
+                }
+                // Flush remaining text
+                if (textRuns.length > 0) {
+                  result.push(new Paragraph({
+                    children: textRuns,
+                    spacing: { before: 100, after: 100 },
+                  }));
+                }
+              } else {
+                result.push(new Paragraph({
+                  children: runs,
+                  spacing: { before: 100, after: 100 },
+                }));
+              }
             }
             break;
           }
           
           case 'ul':
           case 'ol': {
-            for (const [idx, li] of Array.from(element.querySelectorAll(':scope > li')).entries()) {
+            for (const li of Array.from(element.querySelectorAll(':scope > li'))) {
               const liRuns = await buildRuns(li as Element, 24);
               
               // Calculate indentation based on nesting depth
@@ -454,12 +494,36 @@ Return **ONLY** the enhanced and formatted HTML content — clean, structured, a
               const totalIndent = baseIndent + depthIndent;
               
               if (liRuns.length > 0) {
-                result.push(new Paragraph({
-                  children: liRuns,
-                  bullet: { level: depth },
-                  indent: { left: totalIndent, hanging: 360 },
-                  spacing: { before: 50, after: 50 },
-                }));
+                // Separate text runs and images for list items too
+                let textRuns: any[] = [];
+                for (const run of liRuns) {
+                  if (run instanceof ImageRun || (run && run.constructor?.name === 'ImageRun')) {
+                    if (textRuns.length > 0) {
+                      result.push(new Paragraph({
+                        children: textRuns,
+                        bullet: { level: depth },
+                        indent: { left: totalIndent, hanging: 360 },
+                        spacing: { before: 50, after: 50 },
+                      }));
+                      textRuns = [];
+                    }
+                    result.push(new Paragraph({
+                      children: [run],
+                      indent: { left: totalIndent },
+                      spacing: { before: 50, after: 50 },
+                    }));
+                  } else {
+                    textRuns.push(run);
+                  }
+                }
+                if (textRuns.length > 0) {
+                  result.push(new Paragraph({
+                    children: textRuns,
+                    bullet: { level: depth },
+                    indent: { left: totalIndent, hanging: 360 },
+                    spacing: { before: 50, after: 50 },
+                  }));
+                }
               }
               
               // Process nested lists
@@ -498,7 +562,7 @@ Return **ONLY** the enhanced and formatted HTML content — clean, structured, a
           
           case 'hr':
             result.push(new Paragraph({
-              children: [new TextRun({ text: '─'.repeat(50), size: 24, color: 'cccccc' })],
+              children: [new TextRun({ text: '─'.repeat(30), size: 24, color: 'cccccc' })],
               spacing: { before: 200, after: 200 },
               alignment: AlignmentType.CENTER,
             }));
