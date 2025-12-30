@@ -4,12 +4,12 @@ export const parseDocxFile = async (file: File): Promise<string> => {
   try {
     const arrayBuffer = await file.arrayBuffer();
     const result = await mammoth.convertToHtml({ arrayBuffer });
-    
+
     let html = result.value;
-    
+
     // Only fix horizontal lines, preserve everything else as-is
     html = processDocxHtml(html);
-    
+
     return html;
   } catch (error) {
     console.error('Error parsing docx file:', error);
@@ -24,10 +24,10 @@ export const parseDocxFile = async (file: File): Promise<string> => {
 const processDocxHtml = (html: string): string => {
   const temp = document.createElement('div');
   temp.innerHTML = html;
-  
+
   // Only fix horizontal lines
   fixHorizontalLines(temp);
-  
+
   return temp.innerHTML;
 };
 
@@ -40,10 +40,10 @@ const fixHorizontalLines = (container: HTMLElement) => {
     NodeFilter.SHOW_TEXT,
     null
   );
-  
+
   const nodesToProcess: { node: Node; parent: HTMLElement }[] = [];
   let textNode;
-  
+
   while ((textNode = walker.nextNode())) {
     const text = textNode.textContent || '';
     // Match lines with dashes/underscores (20+ characters)
@@ -54,20 +54,24 @@ const fixHorizontalLines = (container: HTMLElement) => {
       }
     }
   }
-  
+
   // Process collected nodes
   nodesToProcess.forEach(({ node, parent }) => {
     const hr = document.createElement('hr');
     hr.style.cssText = `
-      margin: 16px auto;
-      padding: 0;
-      border: none;
-      border-top: 1px solid #cccccc;
-      width: 95%;
-      max-width: 100%;
-      box-sizing: border-box;
-      overflow: hidden;
+      margin: 8px auto !important;
+      padding: 0 !important;
+      border: none !important;
+      border-top: 1px solid #cccccc !important;
+      width: 95% !important;
+      max-width: 100% !important;
+      box-sizing: border-box !important;
+      overflow: hidden !important;
+      height: 0 !important;
+      min-height: 0 !important;
+      line-height: 0 !important;
     `;
+    hr.setAttribute('data-hr-constraint', 'true');
     // Wrap in a container to ensure proper constraint
     const wrapper = document.createElement('div');
     wrapper.style.cssText = `
@@ -75,6 +79,8 @@ const fixHorizontalLines = (container: HTMLElement) => {
       overflow: hidden;
       display: flex;
       justify-content: center;
+      margin: 4px 0 !important;
+      padding: 0 !important;
     `;
     wrapper.appendChild(hr);
     parent.replaceChild(wrapper, node);
