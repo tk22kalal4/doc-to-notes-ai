@@ -5,19 +5,19 @@
 /* Kalam Handwritten Fonts */
 @font-face {
   font-family: 'Kalam';
-  src: url('../../font/Kalam-Regular.ttf') format('truetype');
+  src: url('/font/Kalam-Regular.ttf') format('truetype');
   font-weight: 400;
 }
 
 @font-face {
   font-family: 'Kalam Light';
-  src: url('../../font/Kalam-Light.ttf') format('truetype');
+  src: url('/font/Kalam-Light.ttf') format('truetype');
   font-weight: 300;
 }
 
 @font-face {
   font-family: 'Kalam Bold';
-  src: url('../../font/Kalam-Bold.ttf') format('truetype');
+  src: url('/font/Kalam-Bold.ttf') format('truetype');
   font-weight: 700;
 }
 
@@ -241,6 +241,28 @@ All colors MUST be HSL.
   opacity: 0.3;
 }
 
+/* TinyMCE Editor Horizontal Line Constraints - Prevent margin expansion in edit mode */
+.tox-tinymce hr,
+.tox-tinymce-inline hr,
+[data-hr-constraint="true"] {
+  margin: 8px auto !important;
+  padding: 0 !important;
+  border: none !important;
+  border-top: 1px solid #cccccc !important;
+  width: 95% !important;
+  max-width: 100% !important;
+  height: 0 !important;
+  min-height: 0 !important;
+  line-height: 0 !important;
+  overflow: hidden !important;
+}
+
+/* Parent container for hr elements */
+hr + div,
+div > hr {
+  margin: 4px 0 !important;
+}
+
 .notes-preview h1,
 .notes-preview h2,
 .notes-preview h3 {
@@ -393,38 +415,3 @@ body,
   }
 }
 
-/* DOCX Preview Styles (docx-preview library) */
-.docx-container {
-  padding: 1rem;
-  max-width: 100%;
-}
-
-.docx-container .docx-wrapper {
-  background: white;
-  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -2px rgba(0, 0, 0, 0.1);
-  margin: 0 auto;
-  padding: 1cm;
-}
-
-.dark .docx-container .docx-wrapper {
-  background: hsl(var(--card));
-  color: hsl(var(--foreground));
-}
-
-/* Ensure docx content respects page breaks */
-.docx-container .docx-wrapper section {
-  page-break-after: always;
-  margin-bottom: 2rem;
-}
-
-.docx-container .docx-wrapper section:last-child {
-  page-break-after: auto;
-  margin-bottom: 0;
-}
-
-/* Responsive adjustments */
-@media (max-width: 640px) {
-  .docx-container .docx-wrapper {
-    padding: 0.5cm;
-  }
-}
