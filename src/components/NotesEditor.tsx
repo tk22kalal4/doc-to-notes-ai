@@ -273,6 +273,65 @@ Return **ONLY** the enhanced and formatted HTML content — clean, structured, a
     setShowDownloadDialog(true);
   };
 
+  // Helper: Build text runs from element with proper formatting
+  const buildRuns = async (element: Element, defaultSize: number = 24): Promise<any[]> => {
+    const runs: any[] = [];
+    
+    for (const child of Array.from(element.childNodes)) {
+      if (child.nodeType === Node.TEXT_NODE) {
+        const text = child.textContent || '';
+        if (text) runs.push(new TextRun({ text, size: defaultSize }));
+      } else if (child.nodeType === Node.ELEMENT_NODE) {
+        const el = child as Element;
+        const tag = el.tagName.toLowerCase();
+        const content = el.textContent || '';
+        
+        if (tag === 'img') {
+          const src = el.getAttribute('src');
+          if (src) {
+            try {
+              const imgData = await fetchImageAsArrayBuffer(src);
+              if (imgData) {
+                const dims = await getImageDimensions(src);
+                let w = dims.width, h = dims.height;
+                const sw = el.getAttribute('width') || (el as HTMLElement).style?.width;
+                const sh = el.getAttribute('height') || (el as HTMLElement).style?.height;
+                if (sw) {
+                  const pw = parseInt(sw.toString().replace('px', ''), 10);
+                  if (!isNaN(pw)) w = pw;
+                }
+                if (sh) {
+                  const ph = parseInt(sh.toString().replace('px', ''), 10);
+                  if (!isNaN(ph)) h = ph;
+                }
+                const maxW = 500;
+                if (w > maxW) {
+                  const sc = maxW / w;
+                  w = maxW;
+                  h = Math.round(h * sc);
+                }
+                runs.push(new ImageRun({
+                  data: imgData,
+                  transformation: { width: w, height: h },
+                  type: 'png',
+                }));
+              }
+            } catch (e) {
+              console.warn('Image load failed:', src, e);
+            }
+          }
+        } else if (tag === 'strong' || tag === 'b') {
+          runs.push(new TextRun({ text: content, bold: true, size: defaultSize }));
+        } else if (tag === 'em' || tag === 'i') {
+          runs.push(new TextRun({ text: content, italics: true, size: defaultSize }));
+        } else {
+          runs.push(new TextRun({ text: content, size: defaultSize }));
+        }
+      }
+    }
+    return runs;
+  };
+
   const parseHtmlToDocxElements = async (htmlContent: string): Promise<any[]> => {
     const parser = new DOMParser();
     const doc = parser.parseFromString(htmlContent, 'text/html');
@@ -302,140 +361,79 @@ Return **ONLY** the enhanced and formatted HTML content — clean, structured, a
             if (src) {
               const imageData = await fetchImageAsArrayBuffer(src);
               if (imageData) {
-                // Get original dimensions
-                const originalDimensions = await getImageDimensions(src);
-                
-                // Get inline styles for width/height if specified
+                const dims = await getImageDimensions(src);
+                let width = dims.width, height = dims.height;
                 const styleWidth = element.getAttribute('width') || (element as HTMLElement).style?.width;
                 const styleHeight = element.getAttribute('height') || (element as HTMLElement).style?.height;
-                
-                let width = originalDimensions.width;
-                let height = originalDimensions.height;
-                
-                // Parse style dimensions
                 if (styleWidth) {
-                  const parsedWidth = parseInt(styleWidth.toString().replace('px', ''), 10);
-                  if (!isNaN(parsedWidth)) width = parsedWidth;
+                  const pw = parseInt(styleWidth.toString().replace('px', ''), 10);
+                  if (!isNaN(pw)) width = pw;
                 }
                 if (styleHeight) {
-                  const parsedHeight = parseInt(styleHeight.toString().replace('px', ''), 10);
-                  if (!isNaN(parsedHeight)) height = parsedHeight;
+                  const ph = parseInt(styleHeight.toString().replace('px', ''), 10);
+                  if (!isNaN(ph)) height = ph;
                 }
-                
-                // Scale down if too large (max 600px width for docx)
                 const maxWidth = 600;
                 if (width > maxWidth) {
                   const scale = maxWidth / width;
                   width = maxWidth;
                   height = Math.round(height * scale);
                 }
-                
                 result.push(new Paragraph({
-                  children: [
-                    new ImageRun({
-                      data: imageData,
-                      transformation: {
-                        width,
-                        height,
-                      },
-                      type: 'png',
-                    }),
-                  ],
+                  children: [new ImageRun({
+                    data: imageData,
+                    transformation: { width, height },
+                    type: 'png',
+                  })],
                   spacing: { before: 200, after: 200 },
                 }));
               }
             }
             break;
           }
-          case 'h1':
+          
+          case 'h1': {
+            const runs = await buildRuns(element, 36);
             result.push(new Paragraph({
-              children: [new TextRun({ text: textContent, bold: true, size: 36, color: '0891b2' })],
+              children: runs.length > 0 ? runs : [new TextRun({ text: textContent, bold: true, size: 36, color: '0891b2' })],
               heading: HeadingLevel.HEADING_1,
               spacing: { before: 400, after: 200 },
             }));
             break;
-          case 'h2':
+          }
+          
+          case 'h2': {
+            const runs = await buildRuns(element, 32);
             result.push(new Paragraph({
-              children: [new TextRun({ text: textContent, bold: true, size: 32, color: '9333ea' })],
+              children: runs.length > 0 ? runs : [new TextRun({ text: textContent, bold: true, size: 32, color: '9333ea' })],
               heading: HeadingLevel.HEADING_2,
               spacing: { before: 300, after: 150 },
             }));
             break;
-          case 'h3':
+          }
+          
+          case 'h3': {
+            const runs = await buildRuns(element, 28);
             result.push(new Paragraph({
-              children: [new TextRun({ text: textContent, bold: true, size: 28 })],
+              children: runs.length > 0 ? runs : [new TextRun({ text: textContent, bold: true, size: 28 })],
               heading: HeadingLevel.HEADING_3,
               spacing: { before: 200, after: 100 },
             }));
             break;
-          case 'h4':
+          }
+          
+          case 'h4': {
+            const runs = await buildRuns(element, 26);
             result.push(new Paragraph({
-              children: [new TextRun({ text: textContent, bold: true, size: 26 })],
+              children: runs.length > 0 ? runs : [new TextRun({ text: textContent, bold: true, size: 26 })],
               heading: HeadingLevel.HEADING_4,
               spacing: { before: 150, after: 75 },
             }));
             break;
+          }
+          
           case 'p': {
-            const runs: any[] = [];
-            for (const child of Array.from(element.childNodes)) {
-              if (child.nodeType === Node.TEXT_NODE) {
-                const t = child.textContent || '';
-                if (t) runs.push(new TextRun({ text: t, size: 24 }));
-              } else if (child.nodeType === Node.ELEMENT_NODE) {
-                const el = child as Element;
-                const elTag = el.tagName.toLowerCase();
-                
-                // Handle inline images
-                if (elTag === 'img') {
-                  const imgSrc = el.getAttribute('src');
-                  if (imgSrc) {
-                    try {
-                      const imgData = await fetchImageAsArrayBuffer(imgSrc);
-                      if (imgData) {
-                        const dims = await getImageDimensions(imgSrc);
-                        let w = dims.width;
-                        let h = dims.height;
-                        
-                        const sw = el.getAttribute('width') || (el as HTMLElement).style?.width;
-                        const sh = el.getAttribute('height') || (el as HTMLElement).style?.height;
-                        if (sw) {
-                          const pw = parseInt(sw.toString().replace('px', ''), 10);
-                          if (!isNaN(pw)) w = pw;
-                        }
-                        if (sh) {
-                          const ph = parseInt(sh.toString().replace('px', ''), 10);
-                          if (!isNaN(ph)) h = ph;
-                        }
-                        
-                        const maxW = 600;
-                        if (w > maxW) {
-                          const sc = maxW / w;
-                          w = maxW;
-                          h = Math.round(h * sc);
-                        }
-                        
-                        runs.push(new ImageRun({
-                          data: imgData,
-                          transformation: { width: w, height: h },
-                          type: 'png',
-                        }));
-                      }
-                    } catch (imgError) {
-                      console.warn('Failed to load image in paragraph:', imgSrc, imgError);
-                    }
-                  }
-                } else {
-                  const ct = el.textContent || '';
-                  if (elTag === 'strong' || elTag === 'b') {
-                    runs.push(new TextRun({ text: ct, bold: true, size: 24 }));
-                  } else if (elTag === 'em' || elTag === 'i') {
-                    runs.push(new TextRun({ text: ct, italics: true, size: 24 }));
-                  } else {
-                    runs.push(new TextRun({ text: ct, size: 24 }));
-                  }
-                }
-              }
-            }
+            const runs = await buildRuns(element, 24);
             if (runs.length > 0) {
               result.push(new Paragraph({
                 children: runs,
@@ -444,139 +442,51 @@ Return **ONLY** the enhanced and formatted HTML content — clean, structured, a
             }
             break;
           }
+          
           case 'ul':
           case 'ol': {
-            // Numeric emoji map for ordered lists
-            const numberEmojis = ['0️⃣','1️⃣','2️⃣','3️⃣','4️⃣','5️⃣','6️⃣','7️⃣','8️⃣','9️⃣','🔟'];
-          
             for (const [idx, li] of Array.from(element.querySelectorAll(':scope > li')).entries()) {
-              let bulletText: string;
-          
-              if (tagName === 'ol') {
-                const num = idx + 1;
-                const emoji = numberEmojis[num] || `${num}.`;
-                bulletText = `${emoji} `;
-              } else {
-                // Don't add bullet for ul - HTML content already has emoji bullets
-                bulletText = '';
-              }
-          
-              const liRuns: any[] = [];
-              // Calculate proper left indent: base margin + depth-based indentation
-              const baseMargin = 720; // 0.5 inch = 720 twips
+              const liRuns = await buildRuns(li as Element, 24);
+              
+              // Calculate indentation based on nesting depth
+              const baseIndent = 720; // 0.5 inch base
               const depthIndent = depth * 720; // 0.5 inch per level
-              const totalIndent = baseMargin + depthIndent;
-          
-              for (const child of Array.from(li.childNodes)) {
-                if (child.nodeType === Node.TEXT_NODE) {
-                  const t = child.textContent?.trim() || '';
-                  if (t) {
-                    // Remove any leading "•" character from text content
-                    const cleanedText = t.replace(/^•\s*/, '');
-                    if (cleanedText) {
-                      liRuns.push(new TextRun({ text: cleanedText, size: 24 }));
-                    }
-                  }
-                } 
-                else if (child.nodeType === Node.ELEMENT_NODE) {
-                  const el = child as Element;
-                  const elTag = el.tagName.toLowerCase();
-          
-                  if (elTag === 'ul' || elTag === 'ol') {
-                    continue; // nested handled later
-                  }
-          
-                  if (elTag === 'img') {
-                    const imgSrc = el.getAttribute('src');
-                    if (imgSrc) {
-                      try {
-                        const imgData = await fetchImageAsArrayBuffer(imgSrc);
-                        if (imgData) {
-                          const dims = await getImageDimensions(imgSrc);
-                          let w = dims.width;
-                          let h = dims.height;
-          
-                          const maxW = 500;
-                          if (w > maxW) {
-                            const sc = maxW / w;
-                            w = maxW;
-                            h = Math.round(h * sc);
-                          }
-          
-                          liRuns.push(
-                            new ImageRun({
-                              data: imgData,
-                              transformation: { width: w, height: h },
-                              type: 'png',
-                            })
-                          );
-                        }
-                      } catch (imgError) {
-                        console.warn('Failed to load image in list:', imgSrc, imgError);
-                      }
-                    }
-                  } else {
-                    const ct = el.textContent || '';
-                    // Remove leading "•" from element content too
-                    const cleanedContent = ct.replace(/^•\s*/, '');
-                    if (elTag === 'strong' || elTag === 'b') {
-                      if (cleanedContent) {
-                        liRuns.push(new TextRun({ text: cleanedContent, bold: true, size: 24 }));
-                      }
-                    } else {
-                      if (cleanedContent) {
-                        liRuns.push(new TextRun({ text: cleanedContent, size: 24 }));
-                      }
-                    }
-                  }
-                }
-              }
-          
+              const totalIndent = baseIndent + depthIndent;
+              
               if (liRuns.length > 0) {
-                result.push(
-                  new Paragraph({
-                    children: bulletText ? [new TextRun({ text: bulletText, size: 24 }), ...liRuns] : liRuns,
-                    indent: { left: totalIndent, hanging: bulletText ? 360 : 0 },
-                    spacing: { before: 50, after: 50 },
-                  })
-                );
+                result.push(new Paragraph({
+                  children: liRuns,
+                  bullet: { level: depth },
+                  indent: { left: totalIndent, hanging: 360 },
+                  spacing: { before: 50, after: 50 },
+                }));
               }
-          
-              // Process nested <ul> or <ol>
+              
+              // Process nested lists
               for (const nestedList of Array.from(li.querySelectorAll(':scope > ul, :scope > ol'))) {
                 result.push(...await processNode(nestedList, depth + 1));
               }
             }
-          } // ✅ IMPORTANT: closes block opened after "case 'ol': {"
-          break;
+            break;
+          }
+          
           case 'table': {
             const rows: any[] = [];
-            
             const trs = Array.from(element.querySelectorAll('tr'));
             for (const tr of trs) {
               const cells: any[] = [];
               const tds = Array.from(tr.querySelectorAll('td, th'));
-              
               for (const td of tds) {
-                const cellContent: any[] = [];
                 const cellText = td.textContent?.trim() || '';
-                if (cellText) {
-                  cellContent.push(new Paragraph({
-                    children: [new TextRun({ text: cellText, size: 24 })]
-                  }));
-                } else {
-                  cellContent.push(new Paragraph({ children: [new TextRun({ text: '' })] }));
-                }
-                
                 cells.push(new TableCell({
-                  children: cellContent,
+                  children: [new Paragraph({
+                    children: [new TextRun({ text: cellText, size: 24 })]
+                  })],
                   shading: { fill: td.tagName.toLowerCase() === 'th' ? 'E0E0E0' : 'FFFFFF' }
                 }));
               }
-              
               rows.push(new TableRow({ children: cells }));
             }
-            
             if (rows.length > 0) {
               result.push(new Table({
                 rows: rows,
@@ -585,6 +495,7 @@ Return **ONLY** the enhanced and formatted HTML content — clean, structured, a
             }
             break;
           }
+          
           case 'hr':
             result.push(new Paragraph({
               children: [new TextRun({ text: '─'.repeat(50), size: 24, color: 'cccccc' })],
@@ -592,9 +503,11 @@ Return **ONLY** the enhanced and formatted HTML content — clean, structured, a
               alignment: AlignmentType.CENTER,
             }));
             break;
+          
           case 'br':
-            result.push(new Paragraph({ children: [] }));
+            result.push(new Paragraph({ children: [new TextRun({ text: '' })] }));
             break;
+          
           default:
             for (const child of Array.from(element.childNodes)) {
               result.push(...await processNode(child, depth));
