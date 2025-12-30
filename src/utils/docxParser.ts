@@ -3,98 +3,191 @@ import mammoth from 'mammoth';
 export const parseDocxFile = async (file: File): Promise<string> => {
   try {
     const arrayBuffer = await file.arrayBuffer();
-    
-    // Convert DOCX to HTML using mammoth
     const result = await mammoth.convertToHtml({ arrayBuffer });
     
-    // Post-process to add proper indentation styles based on list nesting
-    const processedHtml = addIndentationStyles(result.value);
+    let html = result.value;
     
-    return processedHtml;
+    // Process the HTML to fix display issues without reconstructing structure
+    html = processDocxHtml(html);
+    
+    return html;
   } catch (error) {
     console.error('Error parsing docx file:', error);
     throw new Error('Failed to parse the docx file. Please ensure it is a valid Word document.');
   }
 };
 
-// Add proper indentation to HTML elements based on hierarchy
-const addIndentationStyles = (html: string): string => {
-  const parser = new DOMParser();
-  const doc = parser.parseFromString(html, 'text/html');
+/**
+ * Process mammoth HTML output to restore visual hierarchy:
+ * 1. Apply indentation to headings (h1, h2, h3, h4)
+ * 2. Apply indentation to paragraphs based on context
+ * 3. Fix horizontal lines
+ * 4. Apply indentation to nested lists
+ */
+const processDocxHtml = (html: string): string => {
+  const temp = document.createElement('div');
+  temp.innerHTML = html;
   
-  // Process all list items to add proper indentation
-  const processLists = (element: Element, depth: number = 0) => {
-    const lists = element.querySelectorAll(':scope > ul, :scope > ol');
+  // Fix 1: Apply proper indentation hierarchy to all elements
+  restoreVisualHierarchy(temp);
+  
+  // Fix 2: Handle horizontal line text that overflows
+  fixHorizontalLines(temp);
+  
+  return temp.innerHTML;
+};
+
+/**
+ * Restore visual hierarchy by applying indentation based on element type
+ * This recreates the visual structure that Word had but mammoth lost
+ */
+const restoreVisualHierarchy = (container: HTMLElement) => {
+  // Process all block-level elements
+  const allElements = container.querySelectorAll('h1, h2, h3, h4, p, ul, ol');
+  
+  allElements.forEach((element) => {
+    const el = element as HTMLElement;
+    const tagName = el.tagName.toLowerCase();
     
-    lists.forEach(list => {
-      const items = list.querySelectorAll(':scope > li');
-      items.forEach(li => {
-        // Add margin-left based on depth
-        const marginLeft = depth * 24; // 24px per level (matches 0.5 inch in DOCX)
-        if (marginLeft > 0) {
-          (li as HTMLElement).style.marginLeft = `${marginLeft}px`;
-        }
-        
-        // Process nested lists with increased depth
-        const nestedLists = li.querySelectorAll(':scope > ul, :scope > ol');
-        nestedLists.forEach(nestedList => {
-          processLists(nestedList.parentElement!, depth + 1);
-        });
-      });
-    });
-  };
-  
-  // Process headings to add proper styles (h2 should have left margin)
-  const h2Elements = doc.querySelectorAll('h2');
-  h2Elements.forEach(h2 => {
-    (h2 as HTMLElement).style.marginLeft = '8px';
-    (h2 as HTMLElement).style.color = '#9333ea';
-  });
-  
-  const h1Elements = doc.querySelectorAll('h1');
-  h1Elements.forEach(h1 => {
-    (h1 as HTMLElement).style.color = '#0891b2';
-  });
-  
-  // Process bullet lists - first level under h2 should be indented
-  const allLists = doc.querySelectorAll('ul, ol');
-  allLists.forEach((list, listIndex) => {
-    // Check if this list is a top-level list (not nested)
-    const parentList = list.parentElement?.closest('ul, ol');
-    
-    if (!parentList) {
-      // This is a top-level list
-      const items = list.querySelectorAll(':scope > li');
-      items.forEach(li => {
-        // First level bullet points - add left margin
-        (li as HTMLElement).style.marginLeft = '24px';
-        (li as HTMLElement).style.paddingLeft = '8px';
-        
-        // Check for nested lists inside this li
-        const nestedLists = li.querySelectorAll(':scope > ul, :scope > ol');
-        nestedLists.forEach(nestedList => {
-          const nestedItems = nestedList.querySelectorAll(':scope > li');
-          nestedItems.forEach(nestedLi => {
+    // Apply indentation based on element type
+    // This restores the visual hierarchy from the Word document
+    if (tagName === 'h1') {
+      // Main title - minimal indentation, leftmost position
+      el.style.marginLeft = '0';
+      el.style.paddingLeft = '0';
+    } else if (tagName === 'h2') {
+      // Section heading - slight indentation
+      el.style.marginLeft = '0.5rem';
+      el.style.paddingLeft = '0';
+    } else if (tagName === 'h3') {
+      // Subsection - more indentation
+      el.style.marginLeft = '1rem';
+      el.style.paddingLeft = '0';
+    } else if (tagName === 'h4') {
+      // Minor heading - even more indentation
+      el.style.marginLeft = '1.5rem';
+      el.style.paddingLeft = '0';
+    } else if (tagName === 'p') {
+      // Paragraphs - check if they contain bullet-like emoji patterns
+      const text = el.textContent || '';
+      const startsWithEmoji = /^[🔹📌🧠✨💡🔸🟡⚠️❤️🩺💊🧬🔬🏥💪💨💓🤒🎯]/.test(text.trim());
+      
+      if (startsWithEmoji) {
+        // This is a styled bullet point - apply appropriate indentation
+        const emojiMatch = text.match(/^([🔹📌🧠✨💡🔸🟡⚠️❤️🩺💊🧬🔬🏥💪💨💓🤒🎯])/);
+        if (emojiMatch) {
+          const emoji = emojiMatch[1];
+          // Determine indentation level based on emoji type
+          if (emoji === '📌' || emoji === '🔹') {
+            // First level - moderate indentation
+            el.style.marginLeft = '2rem';
+            el.style.paddingLeft = '0';
+          } else if (emoji === '🔸' || emoji === '🧠') {
             // Second level - more indentation
-            (nestedLi as HTMLElement).style.marginLeft = '24px';
-            (nestedLi as HTMLElement).style.paddingLeft = '8px';
-            
-            // Check for 3rd level
-            const thirdLevelLists = nestedLi.querySelectorAll(':scope > ul, :scope > ol');
-            thirdLevelLists.forEach(thirdList => {
-              const thirdItems = thirdList.querySelectorAll(':scope > li');
-              thirdItems.forEach(thirdLi => {
-                (thirdLi as HTMLElement).style.marginLeft = '24px';
-                (thirdLi as HTMLElement).style.paddingLeft = '8px';
-              });
-            });
-          });
-        });
+            el.style.marginLeft = '3rem';
+            el.style.paddingLeft = '0';
+          } else if (emoji === '✨' || emoji === '💡') {
+            // Third level - even more indentation
+            el.style.marginLeft = '4rem';
+            el.style.paddingLeft = '0';
+          } else {
+            // Other emojis (headers) - slight indentation
+            el.style.marginLeft = '1.5rem';
+            el.style.paddingLeft = '0';
+          }
+        }
+      } else {
+        // Regular paragraph text - moderate indentation
+        el.style.marginLeft = '2rem';
+        el.style.paddingLeft = '0';
+        el.style.wordWrap = 'break-word';
+        el.style.overflowWrap = 'break-word';
+      }
+    } else if (tagName === 'ul' || tagName === 'ol') {
+      // Lists - determine nesting depth and apply indentation
+      let depth = 0;
+      let parent = el.parentElement;
+      while (parent) {
+        if (parent.tagName.toLowerCase() === 'li') {
+          depth++;
+          parent = parent.parentElement?.parentElement;
+        } else {
+          break;
+        }
+      }
+      
+      // Apply indentation based on depth
+      if (depth === 0) {
+        el.style.marginLeft = '2rem';
+        el.style.paddingLeft = '0';
+      } else if (depth === 1) {
+        el.style.marginLeft = '3rem';
+        el.style.paddingLeft = '0';
+      } else {
+        el.style.marginLeft = `${2 + (depth * 1)}rem`;
+        el.style.paddingLeft = '0';
+      }
+      
+      // Ensure list items wrap properly
+      const items = el.querySelectorAll(':scope > li');
+      items.forEach((item) => {
+        const liEl = item as HTMLElement;
+        liEl.style.wordWrap = 'break-word';
+        liEl.style.overflowWrap = 'break-word';
+        liEl.style.whiteSpace = 'normal';
       });
     }
   });
+};
+
+/**
+ * Convert horizontal line text patterns to proper HR elements or wrapped containers
+ */
+const fixHorizontalLines = (container: HTMLElement) => {
+  const walker = document.createTreeWalker(
+    container,
+    NodeFilter.SHOW_TEXT,
+    null
+  );
   
-  return doc.body.innerHTML;
+  const nodesToProcess: { node: Node; parent: HTMLElement }[] = [];
+  let textNode;
+  
+  while ((textNode = walker.nextNode())) {
+    const text = textNode.textContent || '';
+    // Match lines with dashes/underscores (20+ characters)
+    if (/^[─_\-═]{20,}$/.test(text.trim())) {
+      const parent = textNode.parentElement;
+      if (parent) {
+        nodesToProcess.push({ node: textNode, parent });
+      }
+    }
+  }
+  
+  // Process collected nodes
+  nodesToProcess.forEach(({ node, parent }) => {
+    const hr = document.createElement('hr');
+    hr.style.cssText = `
+      margin: 16px auto;
+      padding: 0;
+      border: none;
+      border-top: 1px solid #cccccc;
+      width: 95%;
+      max-width: 100%;
+      box-sizing: border-box;
+      overflow: hidden;
+    `;
+    // Wrap in a container to ensure proper constraint
+    const wrapper = document.createElement('div');
+    wrapper.style.cssText = `
+      width: 100%;
+      overflow: hidden;
+      display: flex;
+      justify-content: center;
+    `;
+    wrapper.appendChild(hr);
+    parent.replaceChild(wrapper, node);
+  });
 };
 
 export const isDocxFile = (file: File): boolean => {
