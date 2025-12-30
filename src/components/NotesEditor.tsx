@@ -843,10 +843,18 @@ Return **ONLY** the enhanced and formatted HTML content — clean, structured, a
                     overflow-wrap: break-word;
                   }
                   hr {
-                    margin: 12px 0 !important;
+                    margin: 8px 0 !important;
+                    margin-left: auto !important;
+                    margin-right: auto !important;
+                    padding: 0 !important;
                     border: none !important;
                     border-top: 1px solid #cccccc !important;
-                    max-width: 100% !important;
+                    width: 95% !important;
+                    max-width: 95% !important;
+                    height: 0 !important;
+                    min-height: 0 !important;
+                    line-height: 0 !important;
+                    overflow: hidden !important;
                   }
                   ul, ol {
                     max-width: 100%;
