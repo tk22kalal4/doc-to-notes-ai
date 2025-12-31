@@ -46,7 +46,6 @@ const fixHorizontalLines = (container: HTMLElement) => {
 
   while ((textNode = walker.nextNode())) {
     const text = textNode.textContent || '';
-    // Match lines with dashes/underscores (20+ characters)
     if (/^[─_\-═]{20,}$/.test(text.trim())) {
       const parent = textNode.parentElement;
       if (parent) {
@@ -55,36 +54,10 @@ const fixHorizontalLines = (container: HTMLElement) => {
     }
   }
 
-  // Process collected nodes
   nodesToProcess.forEach(({ node, parent }) => {
     const hr = document.createElement('hr');
-    hr.style.cssText = `
-      margin: 4px auto !important;
-      padding: 0 !important;
-      border: none !important;
-      border-top: 1px solid #cccccc !important;
-      width: 95% !important;
-      max-width: 100% !important;
-      box-sizing: border-box !important;
-      overflow: hidden !important;
-      height: 0 !important;
-      min-height: 0 !important;
-      line-height: 0 !important;
-      display: block !important;
-    `;
     hr.setAttribute('data-hr-constraint', 'true');
-    // Wrap in a container to ensure proper constraint
-    const wrapper = document.createElement('div');
-    wrapper.style.cssText = `
-      width: 100%;
-      overflow: hidden;
-      display: flex;
-      justify-content: center;
-      margin: 0 !important;
-      padding: 0 !important;
-    `;
-    wrapper.appendChild(hr);
-    parent.replaceChild(wrapper, node);
+    parent.replaceChild(hr, node);
   });
 };
 
