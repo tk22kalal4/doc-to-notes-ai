@@ -59,7 +59,7 @@ const fixHorizontalLines = (container: HTMLElement) => {
   nodesToProcess.forEach(({ node, parent }) => {
     const hr = document.createElement('hr');
     hr.style.cssText = `
-      margin: 8px auto !important;
+      margin: 4px auto !important;
       padding: 0 !important;
       border: none !important;
       border-top: 1px solid #cccccc !important;
@@ -70,6 +70,7 @@ const fixHorizontalLines = (container: HTMLElement) => {
       height: 0 !important;
       min-height: 0 !important;
       line-height: 0 !important;
+      display: block !important;
     `;
     hr.setAttribute('data-hr-constraint', 'true');
     // Wrap in a container to ensure proper constraint
@@ -79,7 +80,7 @@ const fixHorizontalLines = (container: HTMLElement) => {
       overflow: hidden;
       display: flex;
       justify-content: center;
-      margin: 4px 0 !important;
+      margin: 0 !important;
       padding: 0 !important;
     `;
     wrapper.appendChild(hr);
