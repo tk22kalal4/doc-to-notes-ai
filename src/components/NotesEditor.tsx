@@ -794,25 +794,13 @@ Return **ONLY** the enhanced and formatted HTML content — clean, structured, a
                   'alignright alignjustify | bullist numlist outdent indent | ' +
                   'removeformat | image media table | fontfamily | help',
                 content_style: `
-                  @font-face {
-                    font-family: 'Kalam';
-                    src: url('/font/Kalam-Regular.ttf') format('truetype');
-                    font-weight: 400;
-                  }
-                  @font-face {
-                    font-family: 'KalamLight';
-                    src: url('/font/Kalam-Light.ttf') format('truetype');
-                    font-weight: 300;
-                  }
-                  @font-face {
-                    font-family: 'KalamBold';
-                    src: url('/font/Kalam-Bold.ttf') format('truetype');
-                    font-weight: 700;
-                  }
+                  @import url('https://fonts.googleapis.com/css2?family=Kalam:wght@300;400;700&display=swap');
                   body { 
-                    font-family: Arial, sans-serif; 
-                    font-size: 14px;
+                    font-family: 'Kalam', cursive; 
+                    font-size: 16px;
                     line-height: 1.6;
+                    padding: 20px;
+                    color: #334155;
                   }
                   h1 {
                     color: #0891b2 !important;
@@ -837,30 +825,29 @@ Return **ONLY** the enhanced and formatted HTML content — clean, structured, a
                     font-weight: bold;
                   }
                   p {
-                    margin-top: 6px !important;
-                    margin-bottom: 6px !important;
+                    margin: 0 !important;
+                    padding: 0 !important;
                     max-width: 100%;
                     word-wrap: break-word;
                     overflow-wrap: break-word;
                   }
                   hr {
-                    margin: 4px 0 !important;
-                    margin-left: auto !important;
-                    margin-right: auto !important;
+                    margin: 0 !important;
                     padding: 0 !important;
                     border: none !important;
                     border-top: 1px solid #cccccc !important;
-                    width: 95% !important;
-                    max-width: 95% !important;
+                    width: 100% !important;
+                    max-width: 100% !important;
                     height: 0 !important;
                     min-height: 0 !important;
                     line-height: 0 !important;
                     overflow: hidden !important;
                     display: block !important;
                   }
-                  div > hr, hr + div {
+                  div > hr, hr + div, div:has(> hr) {
                     margin: 0 !important;
                     padding: 0 !important;
+                    line-height: 0 !important;
                   }
                   ul, ol {
                     max-width: 100%;
@@ -889,7 +876,7 @@ Return **ONLY** the enhanced and formatted HTML content — clean, structured, a
                     max-width: 100%; 
                     height: auto;
                     display: block;
-                    margin: 10px 0;
+                    margin: 10px auto;
                     cursor: pointer;
                   }
                   img:hover {
@@ -910,6 +897,7 @@ Return **ONLY** the enhanced and formatted HTML content — clean, structured, a
                     font-weight: bold;
                   }
                 `,
+                font_family_formats: 'Kalam=Kalam, cursive; Arial=Arial, sans-serif;',
                 placeholder: 'Your generated notes will appear here. Use the toolbar to format text, add images, and customize your notes...',
                 
                 // Font family options including Kalam handwritten fonts
