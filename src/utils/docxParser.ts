@@ -57,6 +57,10 @@ const fixHorizontalLines = (container: HTMLElement) => {
   nodesToProcess.forEach(({ node, parent }) => {
     const hr = document.createElement('hr');
     hr.setAttribute('data-hr-constraint', 'true');
+    hr.style.setProperty('margin', '0', 'important');
+    hr.style.setProperty('padding', '0', 'important');
+    hr.style.setProperty('height', '0', 'important');
+    hr.style.setProperty('display', 'block', 'important');
     parent.replaceChild(hr, node);
   });
 };
