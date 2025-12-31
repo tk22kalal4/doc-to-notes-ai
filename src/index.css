@@ -245,7 +245,7 @@ All colors MUST be HSL.
 .tox-tinymce hr,
 .tox-tinymce-inline hr,
 [data-hr-constraint="true"] {
-  margin: 8px auto !important;
+  margin: 4px auto !important;
   padding: 0 !important;
   border: none !important;
   border-top: 1px solid #cccccc !important;
@@ -255,12 +255,16 @@ All colors MUST be HSL.
   min-height: 0 !important;
   line-height: 0 !important;
   overflow: hidden !important;
+  display: block !important;
 }
 
 /* Parent container for hr elements */
 hr + div,
-div > hr {
-  margin: 4px 0 !important;
+div > hr,
+.tox-tinymce div:has(> hr) {
+  margin: 0 !important;
+  padding: 0 !important;
+  line-height: 0 !important;
 }
 
 .notes-preview h1,
