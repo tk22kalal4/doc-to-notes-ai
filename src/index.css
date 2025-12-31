@@ -2,25 +2,6 @@
 @tailwind components;
 @tailwind utilities;
 
-/* Kalam Handwritten Fonts */
-@font-face {
-  font-family: 'Kalam';
-  src: url('/font/Kalam-Regular.ttf') format('truetype');
-  font-weight: 400;
-}
-
-@font-face {
-  font-family: 'Kalam Light';
-  src: url('/font/Kalam-Light.ttf') format('truetype');
-  font-weight: 300;
-}
-
-@font-face {
-  font-family: 'Kalam Bold';
-  src: url('/font/Kalam-Bold.ttf') format('truetype');
-  font-weight: 700;
-}
-
 /* Definition of the design system. All colors, gradients, fonts, etc should be defined here. 
 All colors MUST be HSL.
 */
@@ -244,12 +225,13 @@ All colors MUST be HSL.
 /* TinyMCE Editor Horizontal Line Constraints - Prevent margin expansion in edit mode */
 .tox-tinymce hr,
 .tox-tinymce-inline hr,
-[data-hr-constraint="true"] {
-  margin: 4px auto !important;
+[data-hr-constraint="true"],
+hr {
+  margin: 0 !important;
   padding: 0 !important;
   border: none !important;
   border-top: 1px solid #cccccc !important;
-  width: 95% !important;
+  width: 100% !important;
   max-width: 100% !important;
   height: 0 !important;
   min-height: 0 !important;
@@ -261,7 +243,8 @@ All colors MUST be HSL.
 /* Parent container for hr elements */
 hr + div,
 div > hr,
-.tox-tinymce div:has(> hr) {
+.tox-tinymce div:has(> hr),
+.tox-edit-area__iframe iframe body hr {
   margin: 0 !important;
   padding: 0 !important;
   line-height: 0 !important;
