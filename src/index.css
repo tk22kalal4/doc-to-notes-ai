@@ -278,8 +278,9 @@ div > hr,
 .notes-preview img {
   max-width: 100%;
   height: auto;
-  margin: 1rem 0;
+  margin: 1rem auto;
   border-radius: 0.5rem;
+  display: block;
 }
 
 /* React Quill Rich Text Editor Styles */
