@@ -843,7 +843,7 @@ Return **ONLY** the enhanced and formatted HTML content — clean, structured, a
                     overflow-wrap: break-word;
                   }
                   hr {
-                    margin: 8px 0 !important;
+                    margin: 4px 0 !important;
                     margin-left: auto !important;
                     margin-right: auto !important;
                     padding: 0 !important;
@@ -855,6 +855,11 @@ Return **ONLY** the enhanced and formatted HTML content — clean, structured, a
                     min-height: 0 !important;
                     line-height: 0 !important;
                     overflow: hidden !important;
+                    display: block !important;
+                  }
+                  div > hr, hr + div {
+                    margin: 0 !important;
+                    padding: 0 !important;
                   }
                   ul, ol {
                     max-width: 100%;
