@@ -392,6 +392,7 @@ Return **ONLY** the enhanced and formatted HTML content — clean, structured, a
                     type: 'png',
                   })],
                   spacing: { before: 200, after: 200 },
+                  alignment: AlignmentType.CENTER,
                 }));
               }
             }
@@ -503,14 +504,14 @@ Return **ONLY** the enhanced and formatted HTML content — clean, structured, a
                         children: textRuns,
                         bullet: { level: depth },
                         indent: { left: totalIndent, hanging: 360 },
-                        spacing: { before: 50, after: 50 },
+                        spacing: { before: 0, after: 0 },
                       }));
                       textRuns = [];
                     }
                     result.push(new Paragraph({
                       children: [run],
                       indent: { left: totalIndent },
-                      spacing: { before: 50, after: 50 },
+                      spacing: { before: 100, after: 100 },
                     }));
                   } else {
                     textRuns.push(run);
@@ -521,7 +522,7 @@ Return **ONLY** the enhanced and formatted HTML content — clean, structured, a
                     children: textRuns,
                     bullet: { level: depth },
                     indent: { left: totalIndent, hanging: 360 },
-                    spacing: { before: 50, after: 50 },
+                    spacing: { before: 0, after: 0 },
                   }));
                 }
               }
