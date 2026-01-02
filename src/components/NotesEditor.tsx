@@ -282,6 +282,9 @@ Return **ONLY** the enhanced and formatted HTML content — clean, structured, a
     const fontFamily = htmlEl.style?.fontFamily || '';
     const isKalam = fontFamily.toLowerCase().includes('kalam');
     const isComic = fontFamily.toLowerCase().includes('comic');
+    const isPatrick = fontFamily.toLowerCase().includes('patrick');
+    const isArchitect = fontFamily.toLowerCase().includes('architect');
+    const isCaveat = fontFamily.toLowerCase().includes('caveat');
     
     const fontOptions: any = {
       size: defaultSize,
@@ -289,6 +292,13 @@ Return **ONLY** the enhanced and formatted HTML content — clean, structured, a
 
     if (isKalam) fontOptions.font = 'Kalam';
     else if (isComic) fontOptions.font = 'Comic Neue';
+    else if (isPatrick) fontOptions.font = 'Patrick Hand';
+    else if (isArchitect) fontOptions.font = 'Architects Daughter';
+    else if (isCaveat) fontOptions.font = 'Caveat';
+    
+    // Ensure regular weight and no forced italic/cursive for custom fonts
+    fontOptions.bold = false;
+    fontOptions.italics = false;
     
     for (const child of Array.from(element.childNodes)) {
       if (child.nodeType === Node.TEXT_NODE) {
@@ -303,6 +313,9 @@ Return **ONLY** the enhanced and formatted HTML content — clean, structured, a
         const elFont = elHtml.style?.fontFamily || fontFamily;
         const elIsKalam = elFont.toLowerCase().includes('kalam');
         const elIsComic = elFont.toLowerCase().includes('comic');
+        const elIsPatrick = elFont.toLowerCase().includes('patrick');
+        const elIsArchitect = elFont.toLowerCase().includes('architect');
+        const elIsCaveat = elFont.toLowerCase().includes('caveat');
         
         const elFontOptions: any = {
           size: defaultSize,
@@ -310,6 +323,9 @@ Return **ONLY** the enhanced and formatted HTML content — clean, structured, a
 
         if (elIsKalam) elFontOptions.font = 'Kalam';
         else if (elIsComic) elFontOptions.font = 'Comic Neue';
+        else if (elIsPatrick) elFontOptions.font = 'Patrick Hand';
+        else if (elIsArchitect) elFontOptions.font = 'Architects Daughter';
+        else if (elIsCaveat) elFontOptions.font = 'Caveat';
 
         if (tag === 'ul' || tag === 'ol') {
           continue;
@@ -589,11 +605,6 @@ Return **ONLY** the enhanced and formatted HTML content — clean, structured, a
           properties: {},
           children: docElements as any,
         }],
-        fonts: [
-          { name: 'Arial', data: Buffer.from('') },
-          { name: 'Kalam', data: Buffer.from('') },
-          { name: 'Comic Neue', data: Buffer.from('') }
-        ]
       });
 
       const blob = await Packer.toBlob(doc);
@@ -789,7 +800,7 @@ Return **ONLY** the enhanced and formatted HTML content — clean, structured, a
                   'alignright alignjustify | bullist numlist outdent indent | ' +
                   'removeformat | image media table | fontfamily | help',
                 content_style: `
-                  @import url('https://fonts.googleapis.com/css2?family=Kalam:wght@300;400;700&family=Comic+Neue:wght@300;400;700&display=swap');
+                  @import url('https://fonts.googleapis.com/css2?family=Kalam:wght@400;700&family=Comic+Neue:wght@400;700&family=Patrick+Hand&family=Architects+Daughter&family=Caveat:wght@400;700&display=swap');
                   body { 
                     font-family: Arial, sans-serif; 
                     font-size: 16px;
@@ -892,7 +903,7 @@ Return **ONLY** the enhanced and formatted HTML content — clean, structured, a
                     font-weight: bold;
                   }
                 `,
-                font_family_formats: 'Arial=Arial, sans-serif; Kalam=Kalam, cursive; Comic Sans MS=Comic Neue, cursive;',
+                font_family_formats: 'Arial=Arial, sans-serif; Kalam=Kalam, cursive; Comic Sans MS=Comic Neue, cursive; Patrick Hand=Patrick Hand, cursive; Architects Daughter=Architects Daughter, cursive; Caveat=Caveat, cursive;',
                 placeholder: 'Your generated notes will appear here. Use the toolbar to format text, add images, and customize your notes...',
                 
                 // Font family options including Kalam handwritten fonts
