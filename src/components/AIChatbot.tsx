@@ -412,7 +412,7 @@ Answer any question the user asks - no topic restrictions. Provide helpful, accu
               >
                 {message.role === 'assistant' ? (
                   <div
-                    className="prose prose-sm max-w-none dark:prose-invert"
+                    className="prose prose-sm max-w-none dark:prose-invert break-words [&_strong]:font-bold [&_b]:font-bold"
                     dangerouslySetInnerHTML={{ __html: message.content }}
                   />
                 ) : (
