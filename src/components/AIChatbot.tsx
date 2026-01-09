@@ -37,17 +37,33 @@ export const AIChatbot = ({ ocrTexts }: AIChatbotProps) => {
   const allContent = ocrTexts.join('\n\n');
 
   useEffect(() => {
+    if (isOpen && scrollRef.current) {
+      setTimeout(() => {
+        if (scrollRef.current) {
+          const viewport = scrollRef.current.querySelector('[data-radix-scroll-area-viewport]');
+          if (viewport) {
+            viewport.scrollTop = viewport.scrollHeight;
+          }
+        }
+      }, 100);
+    }
+  }, [isOpen]);
+
+  useEffect(() => {
     if (scrollRef.current) {
-      scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
+      const viewport = scrollRef.current.querySelector('[data-radix-scroll-area-viewport]');
+      if (viewport) {
+        viewport.scrollTop = viewport.scrollHeight;
+      }
     }
   }, [messages]);
 
   const handleResize = (e: MouseEvent) => {
     if (!isResizing || isFullscreen) return;
-    
+
     const newWidth = window.innerWidth - e.clientX;
     const newHeight = window.innerHeight - e.clientY;
-    
+
     setSize({
       width: Math.max(320, Math.min(newWidth, window.innerWidth - 100)),
       height: Math.max(400, Math.min(newHeight, window.innerHeight - 100))
@@ -86,7 +102,7 @@ CRITICAL FORMATTING RULES - FOLLOW EXACTLY:
 1. STRUCTURE WITH VISUAL ELEMENTS:
    - Main points: <h3>emoji Main Point</h3>
    - Subpoints: <h4>emoji Subpoint</h4>
-   
+
 2. EMOJI USAGE:
    - Headings: Use 💡, 🎯, 📚, 🔬, 🩺, 💊 (educational/medical emojis)
    - Bullet Level 1: 🔹 or 📌
@@ -99,7 +115,7 @@ CRITICAL FORMATTING RULES - FOLLOW EXACTLY:
    - Use nested <ul> for sub-points
    - Add <br> between major bullet groups
    - Keep explanations simple and clear
-   
+
 4. BOLD FORMATTING:
    - Wrap ALL important terms in <strong>Term</strong>
    - Medical terms, definitions, key concepts = bold
@@ -159,7 +175,7 @@ CRITICAL FORMATTING RULES - FOLLOW EXACTLY:
 1. STRUCTURE WITH VISUAL ELEMENTS:
    - Main points: <h3>emoji Main Point</h3>
    - Subpoints: <h4>emoji Subpoint</h4>
-   
+
 2. EMOJI USAGE (ENHANCE RESPONSES):
    - Use relevant emojis for headings (💡, 🎯, 📚, 🌟, ✨, 🔥, 💫, etc.)
    - Bullet Level 1: 🔹, 📌, ⭐, or topic-relevant emoji
@@ -172,7 +188,7 @@ CRITICAL FORMATTING RULES - FOLLOW EXACTLY:
    - Use nested <ul> for sub-points
    - Add <br> between major bullet groups
    - Keep explanations clear and engaging
-   
+
 4. BOLD FORMATTING:
    - Wrap ALL important terms, names, and concepts in <strong>Term</strong>
    - Key definitions, technical terms = bold
@@ -217,7 +233,7 @@ continue....formatte
 Answer any question the user asks - no topic restrictions. Provide helpful, accurate, and in easy-to-understand language`;
     }
   };
-  
+
   const sendMessage = async () => {
     if (!input.trim() || isLoading) return;
 
