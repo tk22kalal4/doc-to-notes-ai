@@ -49,14 +49,7 @@ export const AIChatbot = ({ ocrTexts }: AIChatbotProps) => {
     }
   }, [isOpen]);
 
-  useEffect(() => {
-    if (scrollRef.current) {
-      const viewport = scrollRef.current.querySelector('[data-radix-scroll-area-viewport]');
-      if (viewport) {
-        viewport.scrollTop = viewport.scrollHeight;
-      }
-    }
-  }, [messages]);
+  // Handle auto-scroll only on reopen, not while typing as requested
 
   const handleResize = (e: MouseEvent) => {
     if (!isResizing || isFullscreen) return;
@@ -118,9 +111,8 @@ CRITICAL FORMATTING RULES - FOLLOW EXACTLY:
 
 4. BOLD FORMATTING:
    - Wrap ALL important terms in <strong>Term</strong>
+   - Dont use ** for bold instead use <strong> or <b> tag. ALWAYS wrap bold text in <strong> tags.
    - Medical terms, definitions, key concepts = bold
-   - Numbers, measurements, values = bold
-   - Dont use ** for bold instead use <strong> or <b> tag
 
 5. SPACING (VERY IMPORTANT):
    - <br><br> between different topics
@@ -193,7 +185,7 @@ CRITICAL FORMATTING RULES - FOLLOW EXACTLY:
    - Wrap ALL important terms, names, and concepts in <strong>Term</strong>
    - Key definitions, technical terms = bold
    - Numbers, statistics, important values = bold
-   - Dont use ** for bold instead use <strong> or <b> tag
+   - Dont use ** for bold instead use <strong> or <b> tag. ALWAYS wrap bold text in <strong> tags.
 
 5. SPACING (VERY IMPORTANT):
    - <br><br> between different topics
@@ -432,7 +424,9 @@ Answer any question the user asks - no topic restrictions. Provide helpful, accu
                 {message.role === 'assistant' ? (
                   <div
                     className="prose prose-sm max-w-none dark:prose-invert break-words [&_strong]:font-bold [&_b]:font-bold"
-                    dangerouslySetInnerHTML={{ __html: message.content }}
+                    dangerouslySetInnerHTML={{ 
+                      __html: message.content.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>') 
+                    }}
                   />
                 ) : (
                   <p className="text-sm">{message.content}</p>
