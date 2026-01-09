@@ -471,6 +471,7 @@ Return **ONLY** the enhanced and formatted HTML content — clean, structured, a
                     result.push(new Paragraph({
                       children: [run],
                       spacing: { before: 100, after: 100 },
+                      alignment: AlignmentType.CENTER,
                     }));
                   } else {
                     textRuns.push(run);
@@ -519,6 +520,7 @@ Return **ONLY** the enhanced and formatted HTML content — clean, structured, a
                       children: [run],
                       indent: { left: totalIndent },
                       spacing: { before: 0, after: 0 },
+                      alignment: AlignmentType.CENTER,
                     }));
                   } else {
                     textRuns.push(run);
@@ -884,6 +886,7 @@ Return **ONLY** the enhanced and formatted HTML content — clean, structured, a
                     display: block;
                     margin: 10px auto;
                     cursor: pointer;
+                    text-align: center;
                   }
                   img:hover {
                     opacity: 0.9;
