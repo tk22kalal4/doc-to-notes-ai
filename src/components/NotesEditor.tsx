@@ -334,7 +334,35 @@ Return **ONLY** the enhanced and formatted HTML content — clean, structured, a
         const content = el.textContent || '';
         
         if (tag === 'img') {
-          // ... existing image logic ...
+          const src = el.getAttribute('src');
+          if (src) {
+            const imageData = await fetchImageAsArrayBuffer(src);
+            if (imageData) {
+              const dims = await getImageDimensions(src);
+              let width = dims.width, height = dims.height;
+              const styleWidth = el.getAttribute('width') || (el as HTMLElement).style?.width;
+              const styleHeight = el.getAttribute('height') || (el as HTMLElement).style?.height;
+              if (styleWidth) {
+                const pw = parseInt(styleWidth.toString().replace('px', ''), 10);
+                if (!isNaN(pw)) width = pw;
+              }
+              if (styleHeight) {
+                const ph = parseInt(styleHeight.toString().replace('px', ''), 10);
+                if (!isNaN(ph)) height = ph;
+              }
+              const maxWidth = 600;
+              if (width > maxWidth) {
+                const scale = maxWidth / width;
+                width = maxWidth;
+                height = Math.round(height * scale);
+              }
+              runs.push(new ImageRun({
+                data: imageData,
+                transformation: { width, height },
+                type: 'png',
+              }));
+            }
+          }
         } else if (tag === 'strong' || tag === 'b') {
           runs.push(new TextRun({ text: content, bold: true, ...elFontOptions }));
         } else if (tag === 'em' || tag === 'i') {
