@@ -284,6 +284,16 @@ Answer any question the user asks - no topic restrictions. Provide helpful, accu
     }
   };
 
+  const addSuffix = (suffix: string) => {
+    const trimmedInput = input.trim();
+    if (trimmedInput) {
+      const newInput = `${trimmedInput} ${suffix}`;
+      setInput(newInput);
+      // Optional: Auto-send after adding suffix
+      // sendMessage(); 
+    }
+  };
+
   if (!isOpen) {
     return (
       <Button
@@ -434,6 +444,25 @@ Answer any question the user asks - no topic restrictions. Provide helpful, accu
 
       {/* Input */}
       <div className="p-4 border-t bg-background">
+        <div className="flex flex-wrap gap-2 mb-3">
+          {[
+            { label: "Easy Way", suffix: "explain in easy way" },
+            { label: "Word Meaning", suffix: "explain word meaning" },
+            { label: "With Example", suffix: "explain in easiest way possible with example" }
+          ].map((suggestion) => (
+            <Button
+              key={suggestion.suffix}
+              variant="outline"
+              size="sm"
+              className="h-7 text-[10px] px-2 rounded-full border-primary/20 hover:bg-primary/5 hover:text-primary transition-colors"
+              onClick={() => addSuffix(suggestion.suffix)}
+              disabled={isLoading || !input.trim()}
+              data-testid={`button-suggestion-${suggestion.label.toLowerCase().replace(/\s+/g, '-')}`}
+            >
+              {suggestion.label}
+            </Button>
+          ))}
+        </div>
         <div className="flex gap-2">
           <Input
             value={input}
