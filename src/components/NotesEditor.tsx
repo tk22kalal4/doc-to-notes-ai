@@ -119,7 +119,8 @@ export const NotesEditor = ({ content, onContentChange, ocrTexts = [], uploadMod
 - Restructure and reformat content to enhance clarity, flow, and readability.
 - Ensure professional tone suitable for MBBS-level or higher medical learning.
 - Convert long sentences into two or more short, clear bullet points.
-
+- Never Combine Two or more short sentences to form Long Sentence.
+- Never Make Short Complete Sentence into Long Sentence.
 
 ---
 
