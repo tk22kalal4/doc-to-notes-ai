@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Progress } from '@/components/ui/progress';
 import { useToast } from '@/hooks/use-toast';
+import { groqChatCompletion } from '@/lib/groqKeys';
 
 interface NoteGeneratorProps {
   ocrTexts: string[];
@@ -132,29 +133,15 @@ ${contextPrompt}
 
 Convert this OCR text into easiest language beautifully formatted medical notes with visual separators:`;
 
-        const response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${import.meta.env.VITE_GROQ_API_KEY}`
-          },
-          body: JSON.stringify({
-            model: 'meta-llama/llama-4-scout-17b-16e-instruct',
-            messages: [
-              { role: 'system', content: systemPrompt },
-              { role: 'user', content: ocrTexts[i] }
-            ],
-            temperature: 0.9,
-            max_tokens: 2048
-          })
+        const pageNotes = await groqChatCompletion({
+          model: 'meta-llama/llama-4-scout-17b-16e-instruct',
+          messages: [
+            { role: 'system', content: systemPrompt },
+            { role: 'user', content: ocrTexts[i] }
+          ],
+          temperature: 0.9,
+          max_tokens: 2048
         });
-
-        if (!response.ok) {
-          throw new Error('Failed to generate notes');
-        }
-
-        const data = await response.json();
-        const pageNotes = data.choices[0].message.content;
         
         allNotes += pageNotes + '\n\n';
         
