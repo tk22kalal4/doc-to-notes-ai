@@ -6,7 +6,7 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: write
+  contents: read
   pages: write
   id-token: write
 
@@ -24,48 +24,25 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Set up pnpm
-        uses: pnpm/action-setup@v4
-        with:
-          version: 9
-
       - name: Set up Node
         uses: actions/setup-node@v4
         with:
-          node-version: 24
-          cache: 'pnpm'
+          node-version: 18
+          cache: 'npm'
 
       - name: Install dependencies
-        run: pnpm install
+        run: npm ci
 
-      - name: Commit pnpm-lock.yaml if missing
-        run: |
-          if [ ! -f pnpm-lock.yaml ]; then
-            git config user.name "github-actions[bot]"
-            git config user.email "github-actions[bot]@users.noreply.github.com"
-            git add pnpm-lock.yaml
-            git commit -m "chore: Add pnpm lock file [skip ci]"
-            git push
-          fi
-
-      - name: Build doc-to-notes-ai
-        run: pnpm run build
+      - name: Build
+        run: npm run build
         env:
           NODE_ENV: production
-          PORT: '5000'
-          BASE_PATH: /doc-to-notes-ai/
           VITE_GROQ_API_KEY: ${{ secrets.API_KEY }}
           VITE_GROQ_API_KEY_X: ${{ secrets.API_KEY_X }}
           VITE_TINY_API: ${{ secrets.TINY_API }}
 
       - name: Create 404.html for SPA routing
-        run: |
-          if [ -f dist/index.html ]; then
-            cp dist/index.html dist/404.html
-          else
-            echo "Error: dist/index.html not found"
-            exit 1
-          fi
+        run: cp dist/index.html dist/404.html
 
       - name: Setup Pages
         uses: actions/configure-pages@v4
@@ -73,7 +50,7 @@ jobs:
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3
         with:
-          path: 'dist'
+          path: './dist'
 
       - name: Deploy to GitHub Pages
         id: deployment
