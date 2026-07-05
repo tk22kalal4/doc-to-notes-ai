@@ -12,6 +12,8 @@ import { Editor } from '@tinymce/tinymce-react';
 import { MCQGenerator } from '@/components/MCQGenerator';
 import { Document, Packer, Paragraph, TextRun, HeadingLevel, AlignmentType, ImageRun, Table, TableRow, TableCell } from 'docx';
 import { saveAs } from 'file-saver';
+import { groqChatCompletion } from '@/lib/groqKeys';
+import { Languages, Volume2, VolumeX } from 'lucide-react';
 
 // Helper function to fetch image as ArrayBuffer
 const fetchImageAsArrayBuffer = async (src: string): Promise<ArrayBuffer | null> => {
@@ -66,9 +68,19 @@ export const NotesEditor = ({ content, onContentChange, ocrTexts = [], uploadMod
   const [showMCQ, setShowMCQ] = useState(false);
   const [showDownloadDialog, setShowDownloadDialog] = useState(false);
   const [downloadFilename, setDownloadFilename] = useState('medical-notes');
+  const [isConvertingHinglish, setIsConvertingHinglish] = useState(false);
+  const [isSpeaking, setIsSpeaking] = useState(false);
   const { toast } = useToast();
   const editorRef = useRef<any>(null);
   const historyRef = useRef<{ history: string[]; index: number }>({ history: [], index: -1 });
+
+  useEffect(() => {
+    return () => {
+      if (typeof window !== 'undefined' && window.speechSynthesis) {
+        window.speechSynthesis.cancel();
+      }
+    };
+  }, []);
 
   useEffect(() => {
     historyRef.current = { history: contentHistory, index: historyIndex };
@@ -83,17 +95,6 @@ export const NotesEditor = ({ content, onContentChange, ocrTexts = [], uploadMod
 
   // TOUCHUP FUNCTIONALITY - Enhance and format existing notes
   const handleTouchup = async () => {
-    const apiKey = import.meta.env.VITE_GROQ_API_KEY_X || import.meta.env.VITE_GROQ_API_KEY;
-    
-    if (!apiKey) {
-      toast({
-        title: 'API Key Missing',
-        description: 'Please add VITE_GROQ_API_KEY_X in repo secrets or VITE_GROQ_API_KEY in .env for local dev.',
-        variant: 'destructive'
-      });
-      return;
-    }
-
     const currentContent = content;
     const { history: currentHistory, index: currentIndex } = historyRef.current;
     const lastEntry = currentHistory[currentIndex];
@@ -182,31 +183,17 @@ Return **ONLY** the enhanced and formatted HTML content — clean, structured, a
 `;
 
       
-      const response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${apiKey}`
-        },
-        body: JSON.stringify({
-          // DIFFERENT MODEL FOR TOUCHUP
-          model: 'llama-3.3-70b-versatile',
-          messages: [
-            { role: 'system', content: touchupSystemPrompt },
-            { role: 'user', content: `Please enhance and format these medical notes while preserving all medical accuracy:\n\n${currentContent}` }
-          ],
-          temperature: 0.5, // Lower temperature for more consistent medical formatting
-          max_tokens: 8192, // Higher token limit for comprehensive notes
-          top_p: 0.9
-        })
-      });
-
-      if (!response.ok) {
-        throw new Error(`API request failed: ${response.statusText}`);
-      }
-
-      const data = await response.json();
-      const touchedUpContent = data.choices[0]?.message?.content || currentContent;
+      const touchedUpContent = await groqChatCompletion({
+        // DIFFERENT MODEL FOR TOUCHUP
+        model: 'llama-3.3-70b-versatile',
+        messages: [
+          { role: 'system', content: touchupSystemPrompt },
+          { role: 'user', content: `Please enhance and format these medical notes while preserving all medical accuracy:\n\n${currentContent}` }
+        ],
+        temperature: 0.5, // Lower temperature for more consistent medical formatting
+        max_tokens: 8192, // Higher token limit for comprehensive notes
+        top_p: 0.9
+      }) || currentContent;
 
       const { history: latestHistory, index: latestIndex } = historyRef.current;
       const finalHistory = latestHistory.slice(0, latestIndex + 1);
@@ -231,6 +218,145 @@ Return **ONLY** the enhanced and formatted HTML content — clean, structured, a
       });
     } finally {
       setIsTouchingUp(false);
+    }
+  };
+
+  // HINGLISH EXPLAIN - Re-explain current notes like a teacher, in simple Hinglish
+  const handleHinglishExplain = async () => {
+    if (!content) return;
+
+    const currentContent = content;
+    const { history: currentHistory, index: currentIndex } = historyRef.current;
+    const lastEntry = currentHistory[currentIndex];
+
+    if (currentContent !== lastEntry) {
+      const newHistory = currentHistory.slice(0, currentIndex + 1);
+      newHistory.push(currentContent);
+      const newIndex = newHistory.length - 1;
+      setContentHistory(newHistory);
+      setHistoryIndex(newIndex);
+      historyRef.current = { history: newHistory, index: newIndex };
+    }
+
+    setIsConvertingHinglish(true);
+
+    try {
+      const hinglishSystemPrompt = `You are a warm, patient medical teacher explaining notes out loud to a student who understands Hindi and English mixed together (Hinglish).
+
+RULES:
+- Rewrite the given medical notes as a friendly spoken-style explanation in HINGLISH — natural Hindi-English mix, written in ROMAN/ENGLISH SCRIPT ONLY (never Devanagari).
+- Explain like you're teaching a student casually, e.g. "Dekho beta, yeh jo bimari hai na, iska matlab hai ki...".
+- Use very easy, everyday words. Short sentences. Keep it engaging and simple to understand.
+- Do NOT drop or invent medical facts — keep everything medically accurate, just explained simply.
+- Preserve the structure (headings, bullet points) using the same HTML tags as the input.
+- Output ONLY clean HTML using <h1>, <h2>, <h3>, <p>, <ul>, <li>, <strong>, <br>, <hr> — no markdown, no commentary, no extra text.`;
+
+      const hinglishContent = await groqChatCompletion({
+        model: 'llama-3.3-70b-versatile',
+        messages: [
+          { role: 'system', content: hinglishSystemPrompt },
+          { role: 'user', content: `Explain these medical notes in simple Hinglish, like a teacher explaining to a student:\n\n${currentContent}` }
+        ],
+        temperature: 0.7,
+        max_tokens: 8192,
+        top_p: 0.9
+      });
+
+      const finalContent = hinglishContent || currentContent;
+
+      const { history: latestHistory, index: latestIndex } = historyRef.current;
+      const finalHistory = latestHistory.slice(0, latestIndex + 1);
+      finalHistory.push(finalContent);
+      const finalIndex = finalHistory.length - 1;
+      setContentHistory(finalHistory);
+      setHistoryIndex(finalIndex);
+      historyRef.current = { history: finalHistory, index: finalIndex };
+
+      onContentChange(finalContent);
+
+      toast({
+        title: 'Hinglish Explanation Ready!',
+        description: 'Your notes have been explained in simple Hinglish. Use Undo to go back to the original.',
+      });
+    } catch (error) {
+      console.error('Hinglish conversion error:', error);
+      toast({
+        title: 'Hinglish Conversion Failed',
+        description: error instanceof Error ? error.message : 'Failed to convert notes to Hinglish. Please try again.',
+        variant: 'destructive'
+      });
+    } finally {
+      setIsConvertingHinglish(false);
+    }
+  };
+
+  // LISTEN - Read the current notes aloud using the browser's speech synthesis
+  const handleListen = () => {
+    if (typeof window === 'undefined' || !('speechSynthesis' in window)) {
+      toast({
+        title: 'Audio Not Supported',
+        description: 'Your browser does not support text-to-speech playback.',
+        variant: 'destructive'
+      });
+      return;
+    }
+
+    if (isSpeaking) {
+      window.speechSynthesis.cancel();
+      setIsSpeaking(false);
+      return;
+    }
+
+    if (!content) {
+      toast({
+        title: 'Nothing to Read',
+        description: 'Generate or open some notes first.',
+        variant: 'destructive'
+      });
+      return;
+    }
+
+    const plainText = new DOMParser().parseFromString(content, 'text/html').body.textContent?.trim() || '';
+    if (!plainText) {
+      toast({
+        title: 'Nothing to Read',
+        description: 'There is no readable text in the current notes.',
+        variant: 'destructive'
+      });
+      return;
+    }
+
+    try {
+      const utterance = new SpeechSynthesisUtterance(plainText);
+      const voices = window.speechSynthesis.getVoices();
+      const hindiVoice = voices.find(v => v.lang.toLowerCase().startsWith('hi'));
+      if (hindiVoice) utterance.voice = hindiVoice;
+      utterance.rate = 0.95;
+      utterance.pitch = 1;
+      utterance.onend = () => setIsSpeaking(false);
+      utterance.onerror = (event) => {
+        setIsSpeaking(false);
+        const errorType = (event as SpeechSynthesisErrorEvent).error;
+        if (errorType && errorType !== 'canceled' && errorType !== 'interrupted') {
+          toast({
+            title: 'Audio Error',
+            description: `Could not play audio in this browser (${errorType}). Please try a different browser or device.`,
+            variant: 'destructive'
+          });
+        }
+      };
+
+      window.speechSynthesis.cancel();
+      setIsSpeaking(true);
+      window.speechSynthesis.speak(utterance);
+    } catch (err) {
+      console.error('Speech synthesis error:', err);
+      setIsSpeaking(false);
+      toast({
+        title: 'Audio Error',
+        description: 'Could not play audio in this browser. Please try a different browser.',
+        variant: 'destructive'
+      });
     }
   };
 
@@ -730,6 +856,30 @@ Return **ONLY** the enhanced and formatted HTML content — clean, structured, a
                 <Sparkles className="h-3 w-3 sm:h-4 sm:w-4" />
                 <span className="hidden xs:inline">{isTouchingUp ? 'Touching up...' : 'Touchup'}</span>
                 <span className="xs:hidden">{isTouchingUp ? '...' : 'Touch'}</span>
+              </Button>
+              <Button
+                onClick={handleHinglishExplain}
+                variant="outline"
+                size="sm"
+                className="gap-1 sm:gap-2 text-xs sm:text-sm px-2 sm:px-3"
+                disabled={isConvertingHinglish || !content}
+                data-testid="button-hinglish-notes"
+              >
+                <Languages className="h-3 w-3 sm:h-4 sm:w-4" />
+                <span className="hidden xs:inline">{isConvertingHinglish ? 'Converting...' : 'Hinglish'}</span>
+                <span className="xs:hidden">{isConvertingHinglish ? '...' : 'Hin'}</span>
+              </Button>
+              <Button
+                onClick={handleListen}
+                variant="outline"
+                size="sm"
+                className="gap-1 sm:gap-2 text-xs sm:text-sm px-2 sm:px-3"
+                disabled={!content}
+                data-testid="button-listen-notes"
+              >
+                {isSpeaking ? <VolumeX className="h-3 w-3 sm:h-4 sm:w-4" /> : <Volume2 className="h-3 w-3 sm:h-4 sm:w-4" />}
+                <span className="hidden xs:inline">{isSpeaking ? 'Stop' : 'Listen'}</span>
+                <span className="xs:hidden">{isSpeaking ? 'Stop' : 'Play'}</span>
               </Button>
               <Button
                 onClick={() => setShowMCQ(true)}
