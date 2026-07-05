@@ -73,6 +73,9 @@ export const NotesEditor = ({ content, onContentChange, ocrTexts = [], uploadMod
   const { toast } = useToast();
   const editorRef = useRef<any>(null);
   const historyRef = useRef<{ history: string[]; index: number }>({ history: [], index: -1 });
+  const speechQueueRef = useRef<string[]>([]);
+  const speechIndexRef = useRef(0);
+  const speechStoppedRef = useRef(false);
 
   useEffect(() => {
     return () => {
@@ -290,6 +293,135 @@ RULES:
     }
   };
 
+  // Splits text into small, sentence-aware chunks (~180 chars max). Chrome and
+  // several mobile browsers throw "synthesis-failed" on a single long
+  // utterance, so speaking short chunks back-to-back is far more reliable.
+  const splitTextForSpeech = (text: string, maxLen = 180): string[] => {
+    const sentences = text.split(/(?<=[.!?।])\s+/).filter(Boolean);
+    const chunks: string[] = [];
+    let current = '';
+
+    const pushCurrent = () => {
+      if (current.trim()) chunks.push(current.trim());
+      current = '';
+    };
+
+    for (const sentence of sentences) {
+      if (sentence.length > maxLen) {
+        pushCurrent();
+        const words = sentence.split(/\s+/);
+        let piece = '';
+        for (const word of words) {
+          if ((piece + ' ' + word).trim().length > maxLen) {
+            if (piece.trim()) chunks.push(piece.trim());
+            piece = word;
+          } else {
+            piece = (piece + ' ' + word).trim();
+          }
+        }
+        if (piece.trim()) chunks.push(piece.trim());
+        continue;
+      }
+
+      if ((current + ' ' + sentence).trim().length > maxLen) {
+        pushCurrent();
+      }
+      current = (current + ' ' + sentence).trim();
+    }
+    pushCurrent();
+
+    return chunks;
+  };
+
+  // Picks the clearest voice for reading Roman-script Hinglish text aloud.
+  // A generic default voice (often British/US English) mispronounces
+  // Hinglish words badly. An Indian-accented English voice reads both the
+  // English and transliterated-Hindi words far more naturally.
+  const pickBestSpeechVoice = (): SpeechSynthesisVoice | null => {
+    const voices = window.speechSynthesis.getVoices();
+    if (!voices.length) return null;
+
+    const byLangPrefix = (prefix: string) =>
+      voices.find(v => v.lang.toLowerCase() === prefix.toLowerCase()) ||
+      voices.find(v => v.lang.toLowerCase().startsWith(prefix.toLowerCase()));
+
+    return (
+      // Prefer an explicit Indian English voice (e.g. "en-IN")
+      byLangPrefix('en-IN') ||
+      // Some platforms label it by voice name instead of lang code
+      voices.find(v => /india/i.test(v.name)) ||
+      // Fall back to Hindi voice
+      byLangPrefix('hi') ||
+      // Fall back to any English voice rather than the browser's arbitrary default
+      byLangPrefix('en-US') ||
+      byLangPrefix('en') ||
+      voices[0] ||
+      null
+    );
+  };
+
+  const speakNextChunk = () => {
+    if (speechStoppedRef.current || speechIndexRef.current >= speechQueueRef.current.length) {
+      setIsSpeaking(false);
+      return;
+    }
+
+    const chunk = speechQueueRef.current[speechIndexRef.current];
+    const utterance = new SpeechSynthesisUtterance(chunk);
+    const bestVoice = pickBestSpeechVoice();
+    if (bestVoice) utterance.voice = bestVoice;
+    utterance.lang = bestVoice?.lang || 'en-IN';
+    utterance.rate = 0.88;
+    utterance.pitch = 1;
+
+    utterance.onend = () => {
+      if (speechStoppedRef.current) {
+        setIsSpeaking(false);
+        return;
+      }
+      speechIndexRef.current += 1;
+      if (speechIndexRef.current < speechQueueRef.current.length) {
+        speakNextChunk();
+      } else {
+        setIsSpeaking(false);
+      }
+    };
+
+    utterance.onerror = (event) => {
+      const errorType = (event as SpeechSynthesisErrorEvent).error;
+      if (errorType === 'canceled' || errorType === 'interrupted' || speechStoppedRef.current) {
+        setIsSpeaking(false);
+        return;
+      }
+
+      const failedAtStart = speechIndexRef.current === 0;
+      speechIndexRef.current += 1;
+
+      // Skip this chunk and keep going rather than aborting the whole reading;
+      // only surface an error toast if nothing has played at all yet.
+      if (speechIndexRef.current < speechQueueRef.current.length) {
+        speakNextChunk();
+        if (failedAtStart) {
+          toast({
+            title: 'Audio Warning',
+            description: `Some audio could not play (${errorType || 'unknown error'}). Continuing where possible.`,
+            variant: 'destructive'
+          });
+        }
+        return;
+      }
+
+      setIsSpeaking(false);
+      toast({
+        title: 'Audio Error',
+        description: `Could not play audio in this browser (${errorType || 'unknown error'}). Please try a different browser or device.`,
+        variant: 'destructive'
+      });
+    };
+
+    window.speechSynthesis.speak(utterance);
+  };
+
   // LISTEN - Read the current notes aloud using the browser's speech synthesis
   const handleListen = () => {
     if (typeof window === 'undefined' || !('speechSynthesis' in window)) {
@@ -302,6 +434,7 @@ RULES:
     }
 
     if (isSpeaking) {
+      speechStoppedRef.current = true;
       window.speechSynthesis.cancel();
       setIsSpeaking(false);
       return;
@@ -327,28 +460,25 @@ RULES:
     }
 
     try {
-      const utterance = new SpeechSynthesisUtterance(plainText);
-      const voices = window.speechSynthesis.getVoices();
-      const hindiVoice = voices.find(v => v.lang.toLowerCase().startsWith('hi'));
-      if (hindiVoice) utterance.voice = hindiVoice;
-      utterance.rate = 0.95;
-      utterance.pitch = 1;
-      utterance.onend = () => setIsSpeaking(false);
-      utterance.onerror = (event) => {
-        setIsSpeaking(false);
-        const errorType = (event as SpeechSynthesisErrorEvent).error;
-        if (errorType && errorType !== 'canceled' && errorType !== 'interrupted') {
-          toast({
-            title: 'Audio Error',
-            description: `Could not play audio in this browser (${errorType}). Please try a different browser or device.`,
-            variant: 'destructive'
-          });
-        }
-      };
+      // Chrome/mobile browsers reliably throw "synthesis-failed" for a single
+      // long utterance. Splitting into small sentence-sized chunks and
+      // speaking them back-to-back avoids this and also lets Stop work mid-way.
+      const chunks = splitTextForSpeech(plainText);
+      if (chunks.length === 0) {
+        toast({
+          title: 'Nothing to Read',
+          description: 'There is no readable text in the current notes.',
+          variant: 'destructive'
+        });
+        return;
+      }
 
       window.speechSynthesis.cancel();
+      speechQueueRef.current = chunks;
+      speechIndexRef.current = 0;
+      speechStoppedRef.current = false;
       setIsSpeaking(true);
-      window.speechSynthesis.speak(utterance);
+      speakNextChunk();
     } catch (err) {
       console.error('Speech synthesis error:', err);
       setIsSpeaking(false);
