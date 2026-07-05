@@ -1,5 +1,4 @@
 
-
 import React, { useState, useRef, useEffect } from 'react';
 import { Download, Copy, Edit3, Eye, Sparkles, Undo2, Redo2, Brain } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -14,8 +13,9 @@ import { MCQGenerator } from '@/components/MCQGenerator';
 import { Document, Packer, Paragraph, TextRun, HeadingLevel, AlignmentType, ImageRun, Table, TableRow, TableCell } from 'docx';
 import { saveAs } from 'file-saver';
 import { groqChatCompletion } from '@/lib/groqKeys';
-import { Languages, Volume2, VolumeX, Play, Pause, Square } from 'lucide-react';
+import { Languages, Volume2, VolumeX, Play, Pause, Square, Mic } from 'lucide-react';
 import { Slider } from '@/components/ui/slider';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 
 // Helper function to fetch image as ArrayBuffer
 const fetchImageAsArrayBuffer = async (src: string): Promise<ArrayBuffer | null> => {
@@ -80,6 +80,20 @@ export const NotesEditor = ({ content, onContentChange, ocrTexts = [], uploadMod
   const speechStoppedRef = useRef(false);
   const [speechProgress, setSpeechProgress] = useState({ index: 0, total: 0 });
   const [isSpeechPaused, setIsSpeechPaused] = useState(false);
+  const [availableVoices, setAvailableVoices] = useState<SpeechSynthesisVoice[]>([]);
+  const [selectedVoiceURI, setSelectedVoiceURI] = useState<string>(() => {
+    if (typeof window === 'undefined') return '';
+    return window.localStorage.getItem('mednotes-tts-voice-uri') || '';
+  });
+
+  useEffect(() => {
+    if (typeof window === 'undefined' || !('speechSynthesis' in window)) return;
+
+    const loadVoices = () => setAvailableVoices(window.speechSynthesis.getVoices());
+    loadVoices();
+    window.speechSynthesis.addEventListener('voiceschanged', loadVoices);
+    return () => window.speechSynthesis.removeEventListener('voiceschanged', loadVoices);
+  }, []);
 
   useEffect(() => {
     return () => {
@@ -359,28 +373,47 @@ RULES:
     return chunks;
   };
 
+  // Common Indian TTS voice names shipped by Google/Microsoft engines,
+  // bucketed by gender so we can prefer a genuine male-sounding voice
+  // when the user hasn't picked one manually.
+  const KNOWN_MALE_VOICE_NAMES = ['hemant', 'ravi', 'prabhat', 'madhur', 'rishi', 'arnav', 'male'];
+  const KNOWN_FEMALE_VOICE_NAMES = ['heera', 'lekha', 'kalpana', 'swara', 'female'];
+
+  const isLikelyMaleVoice = (name: string): boolean => {
+    const lower = name.toLowerCase();
+    if (KNOWN_FEMALE_VOICE_NAMES.some(n => lower.includes(n))) return false;
+    return KNOWN_MALE_VOICE_NAMES.some(n => lower.includes(n));
+  };
+
   // Picks the clearest voice for reading Roman-script Hinglish text aloud.
   // A generic default voice (often British/US English) mispronounces
-  // Hinglish words badly. An Indian-accented English voice reads both the
-  // English and transliterated-Hindi words far more naturally.
+  // Hinglish words badly. An Indian-accented English/Hindi male voice reads
+  // both the English and transliterated-Hindi words far more naturally.
+  // If the user has manually selected a voice, that always wins.
   const pickBestSpeechVoice = (): SpeechSynthesisVoice | null => {
     const voices = window.speechSynthesis.getVoices();
     if (!voices.length) return null;
 
-    const byLangPrefix = (prefix: string) =>
-      voices.find(v => v.lang.toLowerCase() === prefix.toLowerCase()) ||
-      voices.find(v => v.lang.toLowerCase().startsWith(prefix.toLowerCase()));
+    if (selectedVoiceURI) {
+      const manual = voices.find(v => v.voiceURI === selectedVoiceURI);
+      if (manual) return manual;
+    }
+
+    const isIndianOrHindi = (v: SpeechSynthesisVoice) =>
+      v.lang.toLowerCase().startsWith('en-in') ||
+      v.lang.toLowerCase().startsWith('hi') ||
+      /india|hindi/i.test(v.name);
+
+    const indianVoices = voices.filter(isIndianOrHindi);
 
     return (
-      // Prefer an explicit Indian English voice (e.g. "en-IN")
-      byLangPrefix('en-IN') ||
-      // Some platforms label it by voice name instead of lang code
-      voices.find(v => /india/i.test(v.name)) ||
-      // Fall back to Hindi voice
-      byLangPrefix('hi') ||
+      // Prefer a known male Indian/Hindi voice
+      indianVoices.find(v => isLikelyMaleVoice(v.name)) ||
+      // Otherwise any Indian/Hindi voice at all
+      indianVoices[0] ||
       // Fall back to any English voice rather than the browser's arbitrary default
-      byLangPrefix('en-US') ||
-      byLangPrefix('en') ||
+      voices.find(v => v.lang.toLowerCase().startsWith('en-us')) ||
+      voices.find(v => v.lang.toLowerCase().startsWith('en')) ||
       voices[0] ||
       null
     );
@@ -401,7 +434,9 @@ RULES:
     if (bestVoice) utterance.voice = bestVoice;
     utterance.lang = bestVoice?.lang || 'en-IN';
     utterance.rate = 0.88;
-    utterance.pitch = 1;
+    // A slightly lower pitch reads more like a deeper male voice on engines
+    // that don't expose a dedicated male voice for the selected language.
+    utterance.pitch = bestVoice && isLikelyMaleVoice(bestVoice.name) ? 1 : 0.85;
 
     utterance.onend = () => {
       if (speechStoppedRef.current) {
@@ -1164,6 +1199,36 @@ RULES:
               <span className="shrink-0 text-xs text-muted-foreground tabular-nums" data-testid="text-listen-progress">
                 {speechProgress.index + 1}/{speechProgress.total}
               </span>
+            </div>
+          )}
+          {availableVoices.length > 0 && (
+            <div className="mt-2 flex items-center gap-2" data-testid="voice-picker">
+              <Mic className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+              <Select
+                value={selectedVoiceURI || 'auto'}
+                onValueChange={(value) => {
+                  const next = value === 'auto' ? '' : value;
+                  setSelectedVoiceURI(next);
+                  if (typeof window !== 'undefined') {
+                    window.localStorage.setItem('mednotes-tts-voice-uri', next);
+                  }
+                  if (isSpeaking) {
+                    handleSeekTo(speechIndexRef.current);
+                  }
+                }}
+              >
+                <SelectTrigger className="h-7 w-auto max-w-[220px] gap-1 text-xs" data-testid="select-voice">
+                  <SelectValue placeholder="Auto voice" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="auto">Auto (best Indian voice)</SelectItem>
+                  {availableVoices.map((v) => (
+                    <SelectItem key={v.voiceURI} value={v.voiceURI}>
+                      {v.name} ({v.lang})
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
           )}
         </div>
