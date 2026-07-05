@@ -9,6 +9,7 @@ import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
 import { useToast } from '@/hooks/use-toast';
 import { getRandomTextChunk, shouldUseOCRText } from '@/utils/randomTextSelector';
+import { groqChatCompletion } from '@/lib/groqKeys';
 
 interface MCQ {
   question: string;
@@ -42,17 +43,6 @@ export const MCQGenerator = ({ ocrTexts, onClose }: MCQGeneratorProps) => {
     setIsGenerating(true);
     
     try {
-      const apiKey = import.meta.env.VITE_GROQ_API_X || import.meta.env.VITE_GROQ_API_KEY_X || import.meta.env.VITE_GROQ_API_KEY;
-      
-      if (!apiKey) {
-        toast({
-          title: 'API Key Missing',
-          description: 'Please add VITE_GROQ_API_X in repo secrets or VITE_GROQ_API_KEY in .env for local dev.',
-          variant: 'destructive'
-        });
-        return;
-      }
-
       const useOCR = shouldUseOCRText(ocrTexts, totalMCQs, index);
       let contextText = '';
       let promptBase = '';
@@ -105,29 +95,16 @@ RESPONSE FORMAT (JSON ONLY):
 
 Respond ONLY with valid JSON, no additional text.`;
 
-      const response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${apiKey}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          model: 'llama-3.3-70b-versatile',
-          messages: [
-            { role: 'system', content: systemPrompt },
-            { role: 'user', content: promptBase }
-          ],
-          temperature: 0.7,
-          max_tokens: 1000,
-        }),
+      const rawContent = await groqChatCompletion({
+        model: 'llama-3.3-70b-versatile',
+        messages: [
+          { role: 'system', content: systemPrompt },
+          { role: 'user', content: promptBase }
+        ],
+        temperature: 0.7,
+        max_tokens: 1000,
       });
-
-      if (!response.ok) {
-        throw new Error(`API request failed: ${response.statusText}`);
-      }
-
-      const data = await response.json();
-      const content = data.choices[0].message.content.trim();
+      const content = rawContent.trim();
       
       const jsonMatch = content.match(/\{[\s\S]*\}/);
       if (!jsonMatch) {
