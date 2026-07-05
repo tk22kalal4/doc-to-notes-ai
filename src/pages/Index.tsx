@@ -26,7 +26,7 @@ interface ImageItem {
 
 const Index = () => {
   const { toast } = useToast();
-  const [uploadMode, setUploadMode] = useState<'pdf' | 'image' | 'docx' | null>(null);
+  const [uploadMode, setUploadMode] = useState<'pdf' | 'image' | 'docx' | null>('docx');
   
   // PDF states
   const [pdfFile, setPdfFile] = useState<File | null>(null);
@@ -45,8 +45,8 @@ const Index = () => {
   const [isOCRProcessing, setIsOCRProcessing] = useState(false);
   const [ocrTexts, setOcrTexts] = useState<string[]>([]);
   const [isGeneratingNotes, setIsGeneratingNotes] = useState(false);
-  const [generatedNotes, setGeneratedNotes] = useState('');
-  const [showNotes, setShowNotes] = useState(false);
+  const [generatedNotes, setGeneratedNotes] = useState('<h1>Amoebiasis</h1><p>🔹</p><h2>Definition</h2><p>📌 Amoebiasis is an infection caused by the protozoan Entamoeba histolytica.</p><hr><p>🔹</p><h2>Life Cycle</h2><p>Three stages.</p><hr><p>🔹</p><h2>Source of Infection</h2><p>📌 Humans are the only source.</p>');
+  const [showNotes, setShowNotes] = useState(true);
   const [ocrProgress, setOcrProgress] = useState(0);
   const [ocrCurrentPage, setOcrCurrentPage] = useState(0);
   const [notesProgress, setNotesProgress] = useState(0);
