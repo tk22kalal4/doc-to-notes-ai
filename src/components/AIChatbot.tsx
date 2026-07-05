@@ -7,6 +7,7 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { useToast } from '@/hooks/use-toast';
 import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
+import { groqChatCompletion } from '@/lib/groqKeys';
 
 interface Message {
   role: 'user' | 'assistant';
@@ -71,6 +72,7 @@ export const AIChatbot = ({ ocrTexts }: AIChatbotProps) => {
         window.removeEventListener('mouseup', () => setIsResizing(false));
       };
     }
+    return undefined;
   }, [isResizing]);
 
   const handleModeChange = (checked: boolean) => {
@@ -236,32 +238,19 @@ Answer any question the user asks - no topic restrictions. Provide helpful, accu
     try {
       const systemPrompt = getSystemPrompt(mode);
 
-      const response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${import.meta.env.VITE_GROQ_API_KEY}`
-        },
-        body: JSON.stringify({
-          model: 'openai/gpt-oss-120b',
-          messages: [
-            { role: 'system', content: systemPrompt },
-            ...messages.map(m => ({ role: m.role, content: m.content })),
-            { role: 'user', content: input }
-          ],
-          temperature: 0.9,
-          max_tokens: 1500
-        })
+      const replyContent = await groqChatCompletion({
+        model: 'openai/gpt-oss-120b',
+        messages: [
+          { role: 'system', content: systemPrompt },
+          ...messages.map(m => ({ role: m.role, content: m.content })),
+          { role: 'user', content: input }
+        ],
+        temperature: 0.9,
+        max_tokens: 1500
       });
-
-      if (!response.ok) {
-        throw new Error('Failed to get response');
-      }
-
-      const data = await response.json();
       const assistantMessage: Message = {
         role: 'assistant',
-        content: data.choices[0].message.content
+        content: replyContent
       };
 
       setMessages(prev => [...prev, assistantMessage]);
