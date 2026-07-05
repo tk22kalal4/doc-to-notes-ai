@@ -39,7 +39,7 @@ jobs:
         run: pnpm install --frozen-lockfile
 
       - name: Build doc-to-notes-ai
-        run: pnpm --filter @workspace/doc-to-notes-ai run build
+        run: pnpm run build
         env:
           NODE_ENV: production
           PORT: '5000'
@@ -49,8 +49,13 @@ jobs:
           VITE_TINY_API: ${{ secrets.TINY_API }}
 
       - name: Create 404.html for SPA routing
-
-        run: cp dist/index.html dist/404.html
+        run: |
+          if [ -f dist/index.html ]; then
+            cp dist/index.html dist/404.html
+          else
+            echo "Error: dist/index.html not found"
+            exit 1
+          fi
 
       - name: Setup Pages
         uses: actions/configure-pages@v4
@@ -58,7 +63,7 @@ jobs:
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3
         with:
-          path: './dist'
+          path: 'dist'
 
       - name: Deploy to GitHub Pages
         id: deployment
