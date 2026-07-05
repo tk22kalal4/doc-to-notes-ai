@@ -1,5 +1,4 @@
 
-
 import React, { useState, useRef, useEffect } from 'react';
 import { Download, Copy, Edit3, Eye, Sparkles, Undo2, Redo2, Brain } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -62,6 +61,34 @@ interface NotesEditorProps {
   uploadMode?: 'pdf' | 'image' | 'docx' | null;
   docxContent?: string;
 }
+
+// TinyMCE's parser sometimes inserts empty "padding" paragraphs (e.g. <p>&nbsp;</p>)
+// directly before/after <hr> elements every time it re-parses HTML (e.g. on init).
+// This strips those so the extra blank lines don't get saved and compound on re-edit.
+const stripHrPadding = (html: string): string => {
+  if (!html || !html.includes('<hr')) return html;
+  const isEmptyParagraph = (s: string) =>
+    /^<p[^>]*>(\s|&nbsp;|<br\s*\/?>)*<\/p>$/i.test(s.trim());
+
+  let prev: string;
+  let result = html;
+  do {
+    prev = result;
+    result = result.replace(
+      /(<p[^>]*>(?:\s|&nbsp;|<br\s*\/?>)*<\/p>\s*)+(<hr[^>]*\/?>)/gi,
+      (match, _p, hr) => (isEmptyParagraph(match.slice(0, match.length - hr.length)) ? hr : match)
+    );
+    result = result.replace(
+      /(<hr[^>]*\/?>)(\s*<p[^>]*>(?:\s|&nbsp;|<br\s*\/?>)*<\/p>)+/gi,
+      (match, hr) => {
+        const tail = match.slice(hr.length);
+        return isEmptyParagraph(tail) ? hr : match;
+      }
+    );
+  } while (result !== prev);
+
+  return result;
+};
 
 export const NotesEditor = ({ content, onContentChange, ocrTexts = [], uploadMode = null, docxContent = '' }: NotesEditorProps) => {
   const [activeTab, setActiveTab] = useState<'preview' | 'edit'>('preview');
@@ -1256,13 +1283,17 @@ RULES:
           />
         </TabsContent>
 
-        <TabsContent value="edit" className="m-0 p-4">
+        <TabsContent
+          value="edit"
+          forceMount
+          className="m-0 p-4 data-[state=inactive]:hidden"
+        >
           <div data-testid="rich-text-editor">
             <Editor
               apiKey={import.meta.env.VITE_TINY_API}
               onInit={(_evt, editor) => editorRef.current = editor}
               value={content}
-              onEditorChange={onContentChange}
+              onEditorChange={(newContent) => onContentChange(stripHrPadding(newContent))}
               init={{
                 height: 600,
                 menubar: true,
