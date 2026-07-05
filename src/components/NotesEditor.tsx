@@ -13,7 +13,8 @@ import { MCQGenerator } from '@/components/MCQGenerator';
 import { Document, Packer, Paragraph, TextRun, HeadingLevel, AlignmentType, ImageRun, Table, TableRow, TableCell } from 'docx';
 import { saveAs } from 'file-saver';
 import { groqChatCompletion } from '@/lib/groqKeys';
-import { Languages, Volume2, VolumeX } from 'lucide-react';
+import { Languages, Volume2, VolumeX, Play, Pause, Square } from 'lucide-react';
+import { Slider } from '@/components/ui/slider';
 
 // Helper function to fetch image as ArrayBuffer
 const fetchImageAsArrayBuffer = async (src: string): Promise<ArrayBuffer | null> => {
@@ -76,6 +77,8 @@ export const NotesEditor = ({ content, onContentChange, ocrTexts = [], uploadMod
   const speechQueueRef = useRef<string[]>([]);
   const speechIndexRef = useRef(0);
   const speechStoppedRef = useRef(false);
+  const [speechProgress, setSpeechProgress] = useState({ index: 0, total: 0 });
+  const [isSpeechPaused, setIsSpeechPaused] = useState(false);
 
   useEffect(() => {
     return () => {
@@ -293,6 +296,28 @@ RULES:
     }
   };
 
+  // Strips emoji/pictographic symbols and stray punctuation that browser TTS
+  // engines sometimes read aloud literally (e.g. "large blue diamond",
+  // "slash", "comma") so the spoken notes sound like natural sentences.
+  const cleanTextForSpeech = (text: string): string => {
+    let cleaned = text;
+    // Emoji / pictographic / symbol / flag ranges
+    cleaned = cleaned.replace(
+      /[\u{1F1E6}-\u{1F1FF}\u{1F300}-\u{1FAFF}\u{2600}-\u{27BF}\u{2B00}-\u{2BFF}\u{2190}-\u{21FF}\u{2300}-\u{23FF}\uFE0F\u200D]/gu,
+      ''
+    );
+    // Bullet / arrow / markdown-ish characters
+    cleaned = cleaned.replace(/[•●▪◦‣›»«→←↔]/g, ' ');
+    // Symbols some TTS engines spell out by name (slash, asterisk, hash, etc.)
+    cleaned = cleaned.replace(/[\/\\|*_#@^~`<>{}\[\]=+]/g, ' ');
+    // Commas/semicolons/colons/dashes read literally on some engines ("comma") —
+    // drop them, sentence-ending punctuation (. ! ? ।) is preserved for pacing.
+    cleaned = cleaned.replace(/[,;:]/g, ' ');
+    cleaned = cleaned.replace(/-{1,}/g, ' ');
+    cleaned = cleaned.replace(/\s{2,}/g, ' ').trim();
+    return cleaned;
+  };
+
   // Splits text into small, sentence-aware chunks (~180 chars max). Chrome and
   // several mobile browsers throw "synthesis-failed" on a single long
   // utterance, so speaking short chunks back-to-back is far more reliable.
@@ -366,6 +391,9 @@ RULES:
       return;
     }
 
+    setSpeechProgress({ index: speechIndexRef.current, total: speechQueueRef.current.length });
+    setIsSpeechPaused(false);
+
     const chunk = speechQueueRef.current[speechIndexRef.current];
     const utterance = new SpeechSynthesisUtterance(chunk);
     const bestVoice = pickBestSpeechVoice();
@@ -422,6 +450,36 @@ RULES:
     window.speechSynthesis.speak(utterance);
   };
 
+  const handleStopListening = () => {
+    speechStoppedRef.current = true;
+    window.speechSynthesis.cancel();
+    setIsSpeaking(false);
+    setIsSpeechPaused(false);
+  };
+
+  const handlePauseResume = () => {
+    if (!isSpeaking) return;
+    if (isSpeechPaused) {
+      window.speechSynthesis.resume();
+      setIsSpeechPaused(false);
+    } else {
+      window.speechSynthesis.pause();
+      setIsSpeechPaused(true);
+    }
+  };
+
+  // Jumps playback to a specific chunk (used by the seek/progress bar).
+  const handleSeekTo = (index: number) => {
+    if (!speechQueueRef.current.length) return;
+    const clamped = Math.max(0, Math.min(index, speechQueueRef.current.length - 1));
+    window.speechSynthesis.cancel();
+    speechStoppedRef.current = false;
+    speechIndexRef.current = clamped;
+    setIsSpeechPaused(false);
+    setIsSpeaking(true);
+    speakNextChunk();
+  };
+
   // LISTEN - Read the current notes aloud using the browser's speech synthesis
   const handleListen = () => {
     if (typeof window === 'undefined' || !('speechSynthesis' in window)) {
@@ -434,9 +492,7 @@ RULES:
     }
 
     if (isSpeaking) {
-      speechStoppedRef.current = true;
-      window.speechSynthesis.cancel();
-      setIsSpeaking(false);
+      handleStopListening();
       return;
     }
 
@@ -463,7 +519,8 @@ RULES:
       // Chrome/mobile browsers reliably throw "synthesis-failed" for a single
       // long utterance. Splitting into small sentence-sized chunks and
       // speaking them back-to-back avoids this and also lets Stop work mid-way.
-      const chunks = splitTextForSpeech(plainText);
+      const cleanedText = cleanTextForSpeech(plainText);
+      const chunks = splitTextForSpeech(cleanedText);
       if (chunks.length === 0) {
         toast({
           title: 'Nothing to Read',
@@ -477,6 +534,8 @@ RULES:
       speechQueueRef.current = chunks;
       speechIndexRef.current = 0;
       speechStoppedRef.current = false;
+      setSpeechProgress({ index: 0, total: chunks.length });
+      setIsSpeechPaused(false);
       setIsSpeaking(true);
       speakNextChunk();
     } catch (err) {
@@ -1067,6 +1126,45 @@ RULES:
               </Button>
             </div>
           </div>
+          {isSpeaking && speechProgress.total > 0 && (
+            <div
+              className="mt-3 flex items-center gap-2 sm:gap-3 rounded-md border bg-muted/40 px-3 py-2"
+              data-testid="audio-player-bar"
+            >
+              <Button
+                onClick={handlePauseResume}
+                variant="ghost"
+                size="icon"
+                className="h-7 w-7 shrink-0"
+                data-testid="button-pause-resume-listen"
+                aria-label={isSpeechPaused ? 'Resume' : 'Pause'}
+              >
+                {isSpeechPaused ? <Play className="h-4 w-4" /> : <Pause className="h-4 w-4" />}
+              </Button>
+              <Button
+                onClick={handleStopListening}
+                variant="ghost"
+                size="icon"
+                className="h-7 w-7 shrink-0"
+                data-testid="button-stop-listen"
+                aria-label="Stop"
+              >
+                <Square className="h-3.5 w-3.5" />
+              </Button>
+              <Slider
+                value={[speechProgress.index]}
+                min={0}
+                max={Math.max(speechProgress.total - 1, 0)}
+                step={1}
+                onValueChange={(vals) => handleSeekTo(vals[0])}
+                className="flex-1"
+                data-testid="slider-listen-progress"
+              />
+              <span className="shrink-0 text-xs text-muted-foreground tabular-nums" data-testid="text-listen-progress">
+                {speechProgress.index + 1}/{speechProgress.total}
+              </span>
+            </div>
+          )}
         </div>
 
       <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as 'preview' | 'edit')} className="h-full">
