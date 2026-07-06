@@ -40,6 +40,7 @@ jobs:
           VITE_GROQ_API_KEY: ${{ secrets.API_KEY }}
           VITE_GROQ_API_KEY_X: ${{ secrets.API_KEY_X }}
           VITE_TINY_API: ${{ secrets.TINY_API }}
+          VITE_HF_API_TOKEN: ${{ secrets.HUGGINGFACE_API_TOKEN }}
 
       - name: Create 404.html for SPA routing
         run: cp dist/index.html dist/404.html
