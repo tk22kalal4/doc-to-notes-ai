@@ -690,12 +690,18 @@ RULES:
     setIsHFLoading(true);
 
     try {
-      // Fetch HF token from server once, then cache it
+      // Resolve HF token — prefer build-time env var (GitHub Pages / static
+      // deployments), fall back to the api-server endpoint for local dev.
       if (!hfTokenRef.current) {
-        const tokenRes = await fetch('/api/tts/token');
-        if (!tokenRes.ok) throw new Error('Could not retrieve voice token from server.');
-        const { token } = await tokenRes.json() as { token: string };
-        hfTokenRef.current = token;
+        const buildTimeToken = import.meta.env.VITE_HF_API_TOKEN as string | undefined;
+        if (buildTimeToken) {
+          hfTokenRef.current = buildTimeToken;
+        } else {
+          const tokenRes = await fetch('/api/tts/token');
+          if (!tokenRes.ok) throw new Error('Could not retrieve voice token from server.');
+          const { token } = await tokenRes.json() as { token: string };
+          hfTokenRef.current = token;
+        }
       }
 
       // Call HuggingFace Inference API directly from the browser
