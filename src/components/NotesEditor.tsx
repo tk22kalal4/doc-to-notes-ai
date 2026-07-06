@@ -114,6 +114,27 @@ export const NotesEditor = ({ content, onContentChange, ocrTexts = [], uploadMod
     return window.localStorage.getItem('mednotes-tts-voice-uri') || '';
   });
 
+  // Indian AI Voice (HuggingFace TTS)
+  const [indianVoiceLang, setIndianVoiceLang] = useState<'hindi' | 'assamese'>(() => {
+    if (typeof window === 'undefined') return 'hindi';
+    return (window.localStorage.getItem('mednotes-indian-voice-lang') as 'hindi' | 'assamese') || 'hindi';
+  });
+  const [isHFSpeaking, setIsHFSpeaking] = useState(false);
+  const [isHFPaused, setIsHFPaused] = useState(false);
+  const [isHFLoading, setIsHFLoading] = useState(false);
+  const [hfProgress, setHFProgress] = useState({ index: 0, total: 0 });
+  const hfAudioRef = useRef<HTMLAudioElement | null>(null);
+  const hfStoppedRef = useRef(false);
+  const hfChunksRef = useRef<string[]>([]);
+  const hfChunkIndexRef = useRef(0);
+  const hfLangRef = useRef<'hindi' | 'assamese'>('hindi');
+  // Ref so audio.onended always calls the latest version (avoids stale closure)
+  const speakHFRef = useRef<() => void>(() => {});
+  // Cache HF token after first fetch (token endpoint is on the api-server)
+  const hfTokenRef = useRef<string | null>(null);
+  // Track the active blob URL so it can be revoked on Stop or unmount
+  const hfBlobUrlRef = useRef<string | null>(null);
+
   useEffect(() => {
     if (typeof window === 'undefined' || !('speechSynthesis' in window)) return;
 
@@ -127,6 +148,16 @@ export const NotesEditor = ({ content, onContentChange, ocrTexts = [], uploadMod
     return () => {
       if (typeof window !== 'undefined' && window.speechSynthesis) {
         window.speechSynthesis.cancel();
+      }
+      if (hfAudioRef.current) {
+        hfAudioRef.current.onended = null;
+        hfAudioRef.current.onerror = null;
+        hfAudioRef.current.pause();
+        hfAudioRef.current.src = '';
+      }
+      if (hfBlobUrlRef.current) {
+        URL.revokeObjectURL(hfBlobUrlRef.current);
+        hfBlobUrlRef.current = null;
       }
     };
   }, []);
@@ -612,6 +643,158 @@ RULES:
       });
     }
   };
+
+  // ── Indian AI Voice (HuggingFace TTS) ─────────────────────────────────────
+
+  const handleIndianVoiceStop = () => {
+    hfStoppedRef.current = true;
+    if (hfAudioRef.current) {
+      hfAudioRef.current.onended = null;
+      hfAudioRef.current.onerror = null;
+      hfAudioRef.current.pause();
+      hfAudioRef.current.src = '';
+      hfAudioRef.current = null;
+    }
+    if (hfBlobUrlRef.current) {
+      URL.revokeObjectURL(hfBlobUrlRef.current);
+      hfBlobUrlRef.current = null;
+    }
+    setIsHFSpeaking(false);
+    setIsHFPaused(false);
+    setIsHFLoading(false);
+  };
+
+  const handleIndianVoicePauseResume = () => {
+    if (!hfAudioRef.current) return;
+    if (isHFPaused) {
+      hfAudioRef.current.play().catch(() => {});
+      setIsHFPaused(false);
+    } else {
+      hfAudioRef.current.pause();
+      setIsHFPaused(true);
+    }
+  };
+
+  const HF_TTS_MODELS: Record<string, string> = {
+    hindi: 'facebook/mms-tts-hin',
+    assamese: 'facebook/mms-tts-asm',
+  };
+
+  const speakHFNextChunk = async () => {
+    if (hfStoppedRef.current) { setIsHFSpeaking(false); setIsHFLoading(false); return; }
+    const idx = hfChunkIndexRef.current;
+    const chunks = hfChunksRef.current;
+    if (idx >= chunks.length) { setIsHFSpeaking(false); setIsHFLoading(false); return; }
+
+    setHFProgress({ index: idx, total: chunks.length });
+    setIsHFLoading(true);
+
+    try {
+      // Fetch HF token from server once, then cache it
+      if (!hfTokenRef.current) {
+        const tokenRes = await fetch('/api/tts/token');
+        if (!tokenRes.ok) throw new Error('Could not retrieve voice token from server.');
+        const { token } = await tokenRes.json() as { token: string };
+        hfTokenRef.current = token;
+      }
+
+      // Call HuggingFace Inference API directly from the browser
+      // (browser can resolve api-inference.huggingface.co; server cannot)
+      const model = HF_TTS_MODELS[hfLangRef.current] ?? HF_TTS_MODELS.hindi;
+      const hfRes = await fetch(`https://api-inference.huggingface.co/models/${model}`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${hfTokenRef.current}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ inputs: chunks[idx] }),
+      });
+
+      setIsHFLoading(false);
+      if (hfStoppedRef.current) { setIsHFSpeaking(false); return; }
+
+      if (!hfRes.ok) {
+        const errText = await hfRes.text().catch(() => '');
+        const is503 = hfRes.status === 503;
+        throw new Error(
+          is503
+            ? 'Model is warming up — please try again in ~20 seconds.'
+            : `HF TTS error (${hfRes.status}): ${errText.slice(0, 120)}`
+        );
+      }
+
+      const blob = await hfRes.blob();
+      const url = URL.createObjectURL(blob);
+      // Track the active blob URL so Stop/unmount can revoke it
+      hfBlobUrlRef.current = url;
+      const audio = new Audio(url);
+      hfAudioRef.current = audio;
+
+      audio.onended = () => {
+        // Revoke only if this URL is still the tracked one (not already replaced)
+        if (hfBlobUrlRef.current === url) hfBlobUrlRef.current = null;
+        URL.revokeObjectURL(url);
+        if (!hfStoppedRef.current) {
+          hfChunkIndexRef.current += 1;
+          speakHFRef.current(); // always calls latest version via ref
+        }
+      };
+      audio.onerror = () => {
+        if (hfBlobUrlRef.current === url) hfBlobUrlRef.current = null;
+        URL.revokeObjectURL(url);
+        if (!hfStoppedRef.current) {
+          hfChunkIndexRef.current += 1;
+          speakHFRef.current();
+        }
+      };
+      audio.play().catch(() => {
+        if (hfBlobUrlRef.current === url) hfBlobUrlRef.current = null;
+        URL.revokeObjectURL(url);
+        if (!hfStoppedRef.current) {
+          setIsHFSpeaking(false);
+          toast({ title: 'Playback Error', description: 'Browser blocked audio autoplay.', variant: 'destructive' });
+        }
+      });
+    } catch (err) {
+      setIsHFLoading(false);
+      if (hfStoppedRef.current) { setIsHFSpeaking(false); return; }
+      toast({
+        title: 'Indian Voice Error',
+        description: err instanceof Error ? err.message : 'Audio generation failed. Try again in a few seconds.',
+        variant: 'destructive',
+      });
+      setIsHFSpeaking(false);
+    }
+  };
+  // Keep the ref in sync so audio.onended always invokes the latest closure
+  speakHFRef.current = speakHFNextChunk;
+
+  const handleIndianVoiceListen = () => {
+    if (isHFSpeaking || isHFLoading) { handleIndianVoiceStop(); return; }
+    if (!content) {
+      toast({ title: 'Nothing to Read', description: 'Generate some notes first.', variant: 'destructive' });
+      return;
+    }
+    const plain = new DOMParser().parseFromString(content, 'text/html').body.textContent?.trim() || '';
+    if (!plain) {
+      toast({ title: 'Nothing to Read', description: 'No readable text found.', variant: 'destructive' });
+      return;
+    }
+    const cleaned = cleanTextForSpeech(plain);
+    const chunks = splitTextForSpeech(cleaned, 300);
+    if (!chunks.length) return;
+
+    hfStoppedRef.current = false;
+    hfChunksRef.current = chunks;
+    hfChunkIndexRef.current = 0;
+    hfLangRef.current = indianVoiceLang;
+    setHFProgress({ index: 0, total: chunks.length });
+    setIsHFSpeaking(true);
+    setIsHFPaused(false);
+    speakHFRef.current();
+  };
+
+  // ──────────────────────────────────────────────────────────────────────────
 
   const handleUndo = () => {
     if (historyIndex > 0) {
@@ -1135,6 +1318,25 @@ RULES:
                 <span className="xs:hidden">{isSpeaking ? 'Stop' : 'Play'}</span>
               </Button>
               <Button
+                onClick={handleIndianVoiceListen}
+                variant="outline"
+                size="sm"
+                className="gap-1 sm:gap-2 text-xs sm:text-sm px-2 sm:px-3"
+                disabled={!content}
+                data-testid="button-indian-voice"
+                title="Indian AI Voice — powered by HuggingFace"
+              >
+                {(isHFSpeaking || isHFLoading)
+                  ? <VolumeX className="h-3 w-3 sm:h-4 sm:w-4" />
+                  : <Mic className="h-3 w-3 sm:h-4 sm:w-4" />}
+                <span className="hidden xs:inline">
+                  {isHFLoading ? 'Loading…' : isHFSpeaking ? 'Stop 🇮🇳' : '🇮🇳 Voice'}
+                </span>
+                <span className="xs:hidden">
+                  {isHFLoading ? '…' : isHFSpeaking ? '■' : '🇮🇳'}
+                </span>
+              </Button>
+              <Button
                 onClick={() => setShowMCQ(true)}
                 variant="outline"
                 size="sm"
@@ -1229,6 +1431,47 @@ RULES:
               </span>
             </div>
           )}
+          {(isHFSpeaking || isHFLoading) && (
+            <div className="mt-3 flex items-center gap-2 sm:gap-3 rounded-md border bg-muted/40 px-3 py-2" data-testid="hf-audio-player-bar">
+              {isHFLoading ? (
+                <span className="text-xs text-muted-foreground animate-pulse">
+                  🇮🇳 Generating Indian voice… (first load ~20s)
+                </span>
+              ) : (
+                <>
+                  <Button
+                    onClick={handleIndianVoicePauseResume}
+                    variant="ghost"
+                    size="icon"
+                    className="h-7 w-7 shrink-0"
+                    aria-label={isHFPaused ? 'Resume' : 'Pause'}
+                  >
+                    {isHFPaused ? <Play className="h-4 w-4" /> : <Pause className="h-4 w-4" />}
+                  </Button>
+                  <Button
+                    onClick={handleIndianVoiceStop}
+                    variant="ghost"
+                    size="icon"
+                    className="h-7 w-7 shrink-0"
+                    aria-label="Stop"
+                  >
+                    <Square className="h-3.5 w-3.5" />
+                  </Button>
+                  <Slider
+                    value={[hfProgress.index]}
+                    min={0}
+                    max={Math.max(hfProgress.total - 1, 0)}
+                    step={1}
+                    className="flex-1"
+                    onValueChange={() => {}}
+                  />
+                  <span className="shrink-0 text-xs text-muted-foreground tabular-nums">
+                    🇮🇳 {hfProgress.index + 1}/{hfProgress.total}
+                  </span>
+                </>
+              )}
+            </div>
+          )}
           {availableVoices.length > 0 && (
             <div className="mt-2 flex items-center gap-2" data-testid="voice-picker">
               <Mic className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
@@ -1259,6 +1502,27 @@ RULES:
               </Select>
             </div>
           )}
+          <div className="mt-2 flex items-center gap-2" data-testid="indian-voice-lang-picker">
+            <span className="text-xs text-muted-foreground">🇮🇳 AI Voice:</span>
+            <Select
+              value={indianVoiceLang}
+              onValueChange={(value) => {
+                const lang = value as 'hindi' | 'assamese';
+                setIndianVoiceLang(lang);
+                if (typeof window !== 'undefined') {
+                  window.localStorage.setItem('mednotes-indian-voice-lang', lang);
+                }
+              }}
+            >
+              <SelectTrigger className="h-7 w-auto max-w-[180px] gap-1 text-xs" data-testid="select-indian-lang">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="hindi">Hindi (हिन्दी)</SelectItem>
+                <SelectItem value="assamese">Assamese (অসমীয়া)</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
         </div>
 
       <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as 'preview' | 'edit')} className="h-full">
