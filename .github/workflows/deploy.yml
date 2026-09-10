@@ -31,9 +31,9 @@ jobs:
           cache: 'npm'
 
       - name: Install dependencies
-        # Vite and the React build plugins are devDependencies, but they are
-        # required for this static build even when NODE_ENV=production.
-        run: npm ci --include=dev
+        # npm ci installs dependencies from package-lock.json
+        # DevDependencies are included by default (unlike npm install in production mode)
+        run: npm ci
 
       - name: Build
         run: npm run build
